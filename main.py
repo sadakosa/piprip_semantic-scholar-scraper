@@ -20,16 +20,16 @@ def close_cookie_banner(driver):
     except Exception as e:
         print(f"Failed to close cookie banner: {e}")
 
-def extract_title_and_paper_id(result):
+def extract_title_and_ss_id(result):
     title_elem = result.find('h2', class_='cl-paper-title')
     if title_elem:
         title = title_elem.text.strip() if title_elem.text else "No title available"
-        paper_id = title_elem['id'].split("-", 1)[1] if 'id' in title_elem.attrs else "No ID available"
+        ss_id = title_elem['id'].split("-", 1)[1] if 'id' in title_elem.attrs else "No ID available"
     else:
         title = "No title available"
-        paper_id = "No ID available"
+        ss_id = "No ID available"
     
-    return title, paper_id
+    return title, ss_id
 
 def extract_abstract(result, driver, i):
     print(f"Extracting abstract for result {i}...")
@@ -129,14 +129,14 @@ def search_and_scrape(term, start_page, end_page, logger):
             # Extract and print the information from each result
             for i, result in enumerate(results):
                 try:
-                    title, paper_id = extract_title_and_paper_id(result)
+                    title, ss_id = extract_title_and_ss_id(result)
                     
                     # Extract authors
                     # authors_elems = result.find_all('span', {'data-test-id': 'author-list'})
                     # authors = [author.find('span').text.strip() for author in authors_elems]
 
                     abstract = extract_abstract(result, driver, i)
-                    print(f"Title: {title}\nPaper ID: {paper_id}\nAbstract: {abstract}")
+                    print(f"Title: {title}\nPaper ID: {ss_id}\nAbstract: {abstract}")
 
                 
                 except AttributeError as e:
