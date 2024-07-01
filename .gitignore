@@ -1,4 +1,4 @@
 __pycache__/
 env/
-persona/config/api_key.yaml
+config/config.yaml
 logger/logs

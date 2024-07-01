@@ -11,6 +11,10 @@ To setup local environment:
 - pip install -r requirements.txt
 - deactivate << to exit and enter another environment (e.g., if I have multiple python projects)
 
+- set up config file and yaml
+- set up logger and logs
+
+
 AWS RDS
 username: postgres
 pw: postgres

@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 
 
 from logger.logger import Logger
+from db.db_client import DBClient
+from global_methods import load_yaml_config
 
 
 def close_cookie_banner(driver):
@@ -87,7 +89,17 @@ def extract_abstract(result, driver, i):
             abstract_text = "No abstract available"
             print("abstract: ", abstract_text)
 
-def search_and_scrape(term, start_page, end_page, logger):
+
+
+
+
+
+
+
+
+
+
+def search_and_scrape(term, start_page, end_page, logger, db_client):
     # Setup WebDriver (e.g., ChromeDriver)
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')  # Run in headless mode for faster execution
@@ -130,15 +142,8 @@ def search_and_scrape(term, start_page, end_page, logger):
             for i, result in enumerate(results):
                 try:
                     title, ss_id = extract_title_and_ss_id(result)
-                    
-                    # Extract authors
-                    # authors_elems = result.find_all('span', {'data-test-id': 'author-list'})
-                    # authors = [author.find('span').text.strip() for author in authors_elems]
-
                     abstract = extract_abstract(result, driver, i)
                     print(f"Title: {title}\nPaper ID: {ss_id}\nAbstract: {abstract}")
-
-                
                 except AttributeError as e:
                     print(f"Error parsing result: {e}")
 
@@ -156,11 +161,18 @@ def search_and_scrape(term, start_page, end_page, logger):
 def main():
     logger = Logger()
 
+
+    # psql_user = config['PSQL_USER']
+    # psql_password = config['PSQL_PASSWORD']
+    # psql_host = config['PSQL_HOST']
+    # psql_port = config['PSQL_PORT']
+    db_client = DBClient("test_db", "postgres", "postgres", "xxx", 5432)
+
     # Example usage
     start_page = 1
     end_page = 2
     search_term = "information%20retrieval"
-    search_and_scrape(search_term, start_page, end_page, logger)
+    search_and_scrape(search_term, start_page, end_page, logger, db_client)
 
 if __name__ == "__main__":
     main()
