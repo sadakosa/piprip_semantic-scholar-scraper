@@ -7,6 +7,17 @@ from bs4 import BeautifulSoup
 
 from logger.logger import Logger
 
+def close_cookie_banner(driver):
+    try:
+        cookie_banner = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.cookie-banner"))
+        )
+        accept_button = cookie_banner.find_element(By.TAG_NAME, "button")
+        accept_button.click()
+        time.sleep(2)  # Wait for the banner to close
+    except Exception as e:
+        print(f"Failed to close cookie banner: {e}")
+
 
 def search_and_scrape(term, start_page, end_page, logger):
     # Setup WebDriver (e.g., ChromeDriver)
@@ -26,9 +37,14 @@ def search_and_scrape(term, start_page, end_page, logger):
             WebDriverWait(driver, 10).until(
                 EC.presence_of_all_elements_located((By.CLASS_NAME, "cl-paper-row"))
             )
+            # Close the cookie banner if present
+            close_cookie_banner(driver)
+                
+            # Adding delay to ensure the page has enough time to load
+            time.sleep(5)
 
             # Print the HTTP response details
-            logger.log_message(f"Text: {driver.page_source}\n")
+            # logger.log_message(f"Text: {driver.page_source}\n")
 
             # Get the page source and parse it with BeautifulSoup
             soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -47,31 +63,74 @@ def search_and_scrape(term, start_page, end_page, logger):
                     title_elem = result.find('h2', class_='cl-paper-title')
                     title = title_elem.text.strip() if title_elem else "No title available"
                     print("title: ", title)
-                    print("id: ", title_elem.get('id'))
                     # if title_elem else "No ID available"
 
-                    paper_id = title_elem['id'] if title_elem and 'id' in title_elem.attrs else "No ID available"
-                    
+                    paper_id = title_elem['id'].split("-", 1)[1] if title_elem and 'id' in title_elem.attrs else "No ID available"
+                    print("paper_id: ", paper_id)
                     # Extract authors
                     # authors_elems = result.find_all('span', {'data-test-id': 'author-list'})
                     # authors = [author.find('span').text.strip() for author in authors_elems]
                     
                     # Simulate clicking the "Expand" button to reveal the abstract
-                    expand_button = result.find('button', class_='cl-paper-abstract__btn')
-                    if expand_button:
-                        expand_button_id = expand_button['id']
-                        driver.find_element(By.ID, expand_button_id).click()
-                        time.sleep(0.5)  # Wait for the abstract to be revealed
+                    expand_buttons = result.find_all('button', class_='cl-button cl-button--no-arrow-divider cl-button--not-icon-only cl-button--no-icon cl-button--has-label cl-button--font-size- cl-button--icon-pos-left cl-button--shape-rectangle cl-button--size-default cl-button--type-tertiary cl-button--density-default more mod-clickable more-toggle')
 
-                        # Get the updated page source after clicking "Expand"
-                        updated_soup = BeautifulSoup(driver.page_source, 'html.parser')
-                        updated_result = updated_soup.find('div', id=result['id'])
-                        abstract_elem = updated_result.find('span', class_='cl-paper-abstract') if updated_result else None
-                        abstract = abstract_elem.text.strip() if abstract_elem else "No abstract available"
+                    wait = WebDriverWait(driver, 10)
+
+                    for i, expand_button in enumerate(expand_buttons):
+                        print("yay")
+                        if 'Expand' in expand_button.text:
+                            button_id = f'expand_button_{i}'
+                            expand_button['id'] = button_id
+                            # Extract the class names from the BeautifulSoup Tag
+                            class_names = expand_button['class']
+
+                            # Use JavaScript to set the ID attribute in the actual DOM
+                            class_name_string = " ".join(class_names)
+                            driver.execute_script(
+                                "document.getElementsByClassName(arguments[0])[arguments[1]].setAttribute('id', arguments[2]);",
+                                class_name_string, i, button_id
+                            )
+                            
+                            selenium_button = driver.find_element(By.ID, button_id)
+                            
+                            # Scroll the button into view and click
+                            driver.execute_script("arguments[0].scrollIntoView(true);", selenium_button)
+                            time.sleep(1)
+                            
+                            try:
+                                selenium_button.click()
+                            except Exception:
+                                driver.execute_script("arguments[0].click();", selenium_button)
+                            
+                            time.sleep(0.5)
+                            print(f"Clicked button_{i}")
+                            
+                            # After clicking, reparse the HTML to get the updated content
+                            updated_soup = BeautifulSoup(driver.page_source, 'html.parser')
+                            abstract_title_elements = updated_soup.find_all('div', class_='tldr-abstract__pill')
+                            abstract_title_element = abstract_title_elements[1] 
+                            print("abstract_title_element: ", abstract_title_element)
+                            if abstract_title_element:
+                                # Find all span elements after this div
+                                all_spans = abstract_title_element.find_all_next('span')
+                                # Check if there are at least two span elements
+                                if len(all_spans) > 1:
+                                    # Get the second span element
+                                    second_span_element = all_spans[1]
+                                    
+                                    # Extract and print the abstract text
+                                    abstract_text = ''.join(second_span_element.stripped_strings)
+                                    print("abstract: ", abstract_text)
+                                else:
+                                    print("Less than two span elements found after the specified div.")
+                            else:
+                                abstract_text = "No abstract available"
+                                print("abstract: ", abstract_text)
+                            
                     else:
                         abstract = "No abstract available"
-
-                    print(f"Title: {title}\nAuthors: {', '.join(authors)}\nAbstract: {abstract}\nLink: {link}\n")
+                    print("abstract: ", abstract)
+                    # print(f"Title: {title}\nAuthors: {', '.join(authors)}\nAbstract: {abstract}\nLink: {link}\n")
                 
                 except AttributeError as e:
                     print(f"Error parsing result: {e}")
