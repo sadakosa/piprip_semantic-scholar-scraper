@@ -28,11 +28,9 @@ def create_references_table(db_client):
 
 def insert_paper(db_client, ss_id, title, abstract, url):
     insert_query = """
-    CREATE TABLE IF NOT EXISTS papers (
-        INSERT INTO papers (ss_id, title, abstract, url)
+    INSERT INTO papers (ss_id, title, abstract, url)
         VALUES (%s, %s, %s, %s)
         ON CONFLICT (ss_id) DO NOTHING;
-    );
     """
     db_client.execute(insert_query, (ss_id, title, abstract, url))
     db_client.commit()
@@ -45,3 +43,9 @@ def insert_reference(db_client, ss_id, reference_id):
     """
     db_client.execute(insert_query, (ss_id, reference_id))
     db_client.commit()
+
+def get_all_paper_ids(db_client):
+    select_query = """
+    SELECT ss_id FROM papers;
+    """
+    return db_client.execute(select_query).fetchall()
