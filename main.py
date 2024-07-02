@@ -182,16 +182,17 @@ def main():
 
     config = load_yaml_config('config/config.yaml')
     # AWS RDS PostgreSQL database connection details
-    # psql_user = config['PSQL_USER']
-    # psql_password = config['PSQL_PASSWORD']
-    # psql_host = config['PSQL_HOST']
-    # psql_port = config['PSQL_PORT']
+    psql_user = config['PSQL_USER']
+    psql_password = config['PSQL_PASSWORD']
+    psql_host = config['PSQL_HOST']
+    psql_port = config['PSQL_PORT']
 
     # Local PostgreSQL database connection details
-    psql_user = config['LOCAL_PSQL_USER']
-    psql_password = config['LOCAL_PSQL_PASSWORD']
-    psql_host = config['LOCAL_PSQL_HOST']
-    psql_port = config['LOCAL_PSQL_PORT']
+    # psql_user = config['LOCAL_PSQL_USER']
+    # psql_password = config['LOCAL_PSQL_PASSWORD']
+    # psql_host = config['LOCAL_PSQL_HOST']
+    # psql_port = config['LOCAL_PSQL_PORT']
+
     db_client = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
 
     # Set up the database schema
