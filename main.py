@@ -24,34 +24,30 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
     driver.delete_cookie('IS_SELENIUM')
     time.sleep(1)
 
-    crawler = Crawler(driver, logger)
+    crawler = Crawler(logger, db_client, driver)
 
     base_url = "https://www.semanticscholar.org"
     search_url = f"{base_url}/search?fos%5B0%5D=computer-science&q={term}&sort=total-citations&page="
     
     for current_page in range(start_page, end_page + 1):
         try:
-            # Open the search URL for the current page
             driver.get(search_url + str(current_page))
 
             # Wait for the search results to load (adjust the timeout as needed)
             WebDriverWait(driver, 10).until(
                 EC.presence_of_all_elements_located((By.CLASS_NAME, "cl-paper-row"))
             )
-            # Close the cookie banner if present
+            
             crawler.close_cookie_banner()
-                
-            # Adding delay to ensure the page has enough time to load
             time.sleep(5)
 
-            # Get the page source and parse it with BeautifulSoup
+            
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-            # Find the elements that contain the search results
-            results = soup.find_all('div', class_='cl-paper-row')
+            results = soup.find_all('div', class_='cl-paper-row') # rows of search results (1 row = 1 result)
 
             if not results:
-                print(f"No results found on page {current_page}. Ending search.")
+                # print(f"No results found on page {current_page}. Ending search.")
+                logger.log_message(f"No results found on page {current_page} for search term {term}. Ending search.")
                 break  # Exit the loop if no results are found (end of pages)
             
             # Extract and print the information from each result
@@ -61,9 +57,14 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
                 try:
                     title, ss_id = crawler.extract_title_and_ss_id(result)
                     abstract = crawler.extract_abstract(result, i, ss_id)
-                    print(f"Title: {title}\nPaper ID: {ss_id}\nAbstract: {abstract}")
+                    paper_url = "https://www.semanticscholar.org/paper/" + ss_id
+
+                    # Insert the paper into the database
+                    db_operations.insert_paper(db_client, ss_id, title, abstract, paper_url)
+                    # print(f"Title: {title}\nPaper ID: {ss_id}\nAbstract: {abstract}")
                 except AttributeError as e:
-                    print(f"Error parsing result: {e}")
+                    # print(f"Error parsing result: {e}")
+                    logger.log_message(f"Error parsing result for result {i} on page {current_page}, search term {term}. Error: {e}")
 
             # Record the last successful trial
             logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}], Date-Time [{time.ctime()}]")
@@ -71,7 +72,8 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
             time.sleep(1)        
 
         except Exception as e:
-            print(f"An error occurred on page {current_page}: {e}")
+            # print(f"An error occurred on page {current_page}: {e}")
+            logger.log_message(f"An error occurred on page {current_page} for search term {term}. Error: {e}")
             logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}]")
             break  # Optionally, you can choose to retry or skip this page
     
@@ -86,6 +88,22 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
 
 
 
+
+
+
+def scrape_references(logger, db_client):
+    crawler = Crawler(logger, db_client)
+
+    paper_id = "56cd42350c3542c22ecc69f50ccc7bab241e6687"
+    crawler.extract_references(paper_id)
+
+    # paper_ids = db_operations.get_all_paper_ids(db_client)
+
+    # for paper_id in paper_ids:
+    #     try:
+    #         crawler.extract_references(paper_id)
+    #     except Exception as e:
+    #         logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Error: {e}")
 
 
 
@@ -117,7 +135,7 @@ def main():
     db_operations.create_references_table(db_client)
 
     # =============================================
-    # CODE PROPER
+    # SEARCH AND SCRAPE
     # =============================================
 
     # Example usage
@@ -125,7 +143,13 @@ def main():
     end_page = 2
     search_term = "information retrieval"
     parsed_search_term = make_url_friendly(search_term)
-    search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+    # search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+
+    # =============================================
+    # SCRAPE REFERENCES
+    # =============================================
+
+    scrape_references(logger, db_client)
     
     logger.close_log_file()
 

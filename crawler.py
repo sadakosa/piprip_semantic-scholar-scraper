@@ -5,6 +5,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 
+from db import db_operations
+import requests
+
+
+
 # ====================================================================================================
 # Crawler Class
 # 
@@ -13,13 +18,15 @@ from bs4 import BeautifulSoup
 # - close_cookie_banner: Closes the cookie banner if present
 # - extract_title_and_ss_id: Extracts the title and Semantic Scholar ID from a search result
 # - extract_abstract: Extracts the abstract from a search result
+# - extract_references: Extracts the references from a search result
 # ====================================================================================================
 
 
 class Crawler:
-    def __init__(self, driver, logger):
+    def __init__(self, logger, db_client, driver=None):
         self.driver = driver
         self.logger = logger  
+        self.db_client = db_client
 
 
     def close_cookie_banner(self):
@@ -43,6 +50,25 @@ class Crawler:
             ss_id = "No ID available"
         
         return title, ss_id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     # ====================================================================================================
@@ -169,3 +195,56 @@ class Crawler:
             text = text[:-len("Collapse")].strip()
         
         return text    
+    
+
+
+
+
+
+
+
+
+
+
+
+    # ====================================================================================================
+    # Main Extract References Function, and the corresponding private functions used below it. 
+    # ====================================================================================================
+
+    def extract_references(self, paper_id):
+
+        # retrieve papers from database
+        # call the semantic scholar API for references and citations
+        # iterate through the references and citations and insert them into the database
+
+        print(f"Extracting references for paper {paper_id}...")
+        
+        references = self.__get_paper_references(paper_id)
+        citations = self.__get_paper_citations(paper_id)
+
+        print("References:", references)
+        print("Citations:", citations)
+
+        # db_operations.insert_reference(self.db_client, paper_id, reference_id)
+
+    def __get_paper_references(paper_id, api_key=None):
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references"
+        headers = {"x-api-key": api_key} if api_key else {}
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Error: {response.status_code}, {response.text}")
+
+    def __get_paper_citations(paper_id, api_key=None):
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/citations"
+        headers = {"x-api-key": api_key} if api_key else {}
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Error: {response.status_code}, {response.text}")
