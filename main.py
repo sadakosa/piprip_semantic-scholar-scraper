@@ -8,7 +8,8 @@ from bs4 import BeautifulSoup
 
 from logger.logger import Logger
 from db.db_client import DBClient
-from global_methods import load_yaml_config
+from global_methods import load_yaml_config, make_url_friendly
+from db import db_operations
 
 
 def close_cookie_banner(driver):
@@ -124,9 +125,6 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
             # Adding delay to ensure the page has enough time to load
             time.sleep(5)
 
-            # Print the HTTP response details
-            # logger.log_message(f"Text: {driver.page_source}\n")
-
             # Get the page source and parse it with BeautifulSoup
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
@@ -137,7 +135,6 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
                 print(f"No results found on page {current_page}. Ending search.")
                 break  # Exit the loop if no results are found (end of pages)
             
-            
             # Extract and print the information from each result
             for i, result in enumerate(results):
                 try:
@@ -147,32 +144,55 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
                 except AttributeError as e:
                     print(f"Error parsing result: {e}")
 
+            # Record the last successful trial
+            logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}], Date-Time [{time.ctime()}]")
             # Be polite and wait a bit before the next request to avoid being blocked
             time.sleep(1)        
 
         except Exception as e:
             print(f"An error occurred on page {current_page}: {e}")
-            logger.close_log_file()
+            logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}]")
             break  # Optionally, you can choose to retry or skip this page
-
-    logger.close_log_file()
+    
     driver.quit()
 
 def main():
-    logger = Logger()
+    logger = Logger() # To log last try
 
+    # =============================================
+    # POSTGRESQL DATABASE CONNECTION
+    # =============================================
 
+    config = load_yaml_config('config/config.yaml')
+    # AWS RDS PostgreSQL database connection details
     # psql_user = config['PSQL_USER']
     # psql_password = config['PSQL_PASSWORD']
     # psql_host = config['PSQL_HOST']
     # psql_port = config['PSQL_PORT']
-    db_client = DBClient("test_db", "postgres", "postgres", "xxx", 5432)
+
+    # Local PostgreSQL database connection details
+    psql_user = config['LOCAL_PSQL_USER']
+    psql_password = config['LOCAL_PSQL_PASSWORD']
+    psql_host = config['LOCAL_PSQL_HOST']
+    psql_port = config['LOCAL_PSQL_PORT']
+    db_client = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
+
+    # Set up the database schema
+    db_operations.create_paper_table(db_client)
+    db_operations.create_references_table(db_client)
+
+    # =============================================
+    # CODE PROPER
+    # =============================================
 
     # Example usage
     start_page = 1
     end_page = 2
-    search_term = "information%20retrieval"
-    search_and_scrape(search_term, start_page, end_page, logger, db_client)
+    search_term = "information retrieval"
+    parsed_search_term = make_url_friendly(search_term)
+    search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+    
+    logger.close_log_file()
 
 if __name__ == "__main__":
     main()

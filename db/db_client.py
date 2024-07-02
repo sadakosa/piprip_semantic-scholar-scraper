@@ -3,8 +3,6 @@ import psycopg2
 
 class DBClient:
     def __init__(self, db_name, user, password, host, port):
-        config = load_yaml_config('config/config.yaml')
-
         self.conn = psycopg2.connect(
             dbname=db_name,
             user=user,
@@ -18,7 +16,10 @@ class DBClient:
         self.cur.close()
         self.conn.close()
 
-    def execute(self, query):
-        self.cur.execute(query)
-        self.commit() # to save any changes you make to the database
-        return self.cur.fetchall()
+    def execute(self, query, params=None):
+        self.cur.execute(query, params)
+        if self.cur.description:  # Check if the query returns rows
+            return self.cur.fetchall()
+
+    def commit(self):
+        self.conn.commit()
