@@ -203,8 +203,8 @@ def main():
     # =============================================
 
     # Example usage
-    start_page = 2
-    end_page = 4
+    start_page = 1
+    end_page = 150
     search_term = "information retrieval"
     parsed_search_term = make_url_friendly(search_term)
     search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
