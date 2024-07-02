@@ -11,92 +11,8 @@ from db.db_client import DBClient
 from global_methods import load_yaml_config, make_url_friendly
 from db import db_operations
 
-
-def close_cookie_banner(driver):
-    try:
-        cookie_banner = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div.cookie-banner"))
-        )
-        accept_button = cookie_banner.find_element(By.TAG_NAME, "button")
-        accept_button.click()
-        time.sleep(2)  # Wait for the banner to close
-    except Exception as e:
-        print(f"Failed to close cookie banner: {e}")
-
-def extract_title_and_ss_id(result):
-    title_elem = result.find('h2', class_='cl-paper-title')
-    if title_elem:
-        title = title_elem.text.strip() if title_elem.text else "No title available"
-        ss_id = title_elem['id'].split("-", 1)[1] if 'id' in title_elem.attrs else "No ID available"
-    else:
-        title = "No title available"
-        ss_id = "No ID available"
-    
-    return title, ss_id
-
-def extract_abstract(result, driver, i):
-    print(f"Extracting abstract for result {i}...")
-    # Simulate clicking the "Expand" button to reveal the abstract
-    expand_buttons = result.find_all('button', class_='cl-button cl-button--no-arrow-divider cl-button--not-icon-only cl-button--no-icon cl-button--has-label cl-button--font-size- cl-button--icon-pos-left cl-button--shape-rectangle cl-button--size-default cl-button--type-tertiary cl-button--density-default more mod-clickable more-toggle')
-
-    expand_button = expand_buttons[0]
-    if 'Expand' in expand_button.text:
-        button_id = f'expand_button_{i}'
-        expand_button['id'] = button_id
-
-        # Extract the class names from the BeautifulSoup Tag
-        class_names = expand_button['class']
-
-        # Use JavaScript to set the ID attribute in the actual DOM
-        class_name_string = " ".join(class_names)
-        driver.execute_script(
-            "document.getElementsByClassName(arguments[0])[arguments[1]].setAttribute('id', arguments[2]);",
-            class_name_string, i, button_id
-        )
-
-        selenium_button = driver.find_element(By.ID, button_id)
-        
-        # Scroll the button into view and click
-        driver.execute_script("arguments[0].scrollIntoView(true);", selenium_button)
-        time.sleep(1)
-
-        try:
-            selenium_button.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", selenium_button)
-        
-        time.sleep(0.5)
-        print(f"Clicked button_{i}")
-
-        # After clicking, reparse the HTML to get the updated content
-        updated_soup = BeautifulSoup(driver.page_source, 'html.parser')
-        abstract_title_elements = updated_soup.find_all('div', class_='tldr-abstract__pill')
-        abstract_title_element = abstract_title_elements[2 * i + 1] 
-        print("abstract_title_element: ", abstract_title_element)
-        if abstract_title_element:
-            # Find all span elements after this div
-            all_spans = abstract_title_element.find_all_next('span')
-            # Check if there are at least two span elements
-            if len(all_spans) > 1:
-                # Get the second span element
-                second_span_element = all_spans[1]
-                
-                # Extract and print the abstract text
-                abstract_text = ''.join(second_span_element.stripped_strings)
-                return abstract_text
-            else:
-                print("Less than two span elements found after the specified div.")
-        else:
-            abstract_text = "No abstract available"
-            print("abstract: ", abstract_text)
-
-
-
-
-
-
-
-
+# from random_1 import extract_abstract_test
+from crawler import Crawler
 
 
 
@@ -106,6 +22,9 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
     options.add_argument('--headless')  # Run in headless mode for faster execution
     driver = webdriver.Chrome(options=options)
     driver.delete_cookie('IS_SELENIUM')
+    time.sleep(1)
+
+    crawler = Crawler(driver, logger)
 
     base_url = "https://www.semanticscholar.org"
     search_url = f"{base_url}/search?fos%5B0%5D=computer-science&q={term}&sort=total-citations&page="
@@ -120,7 +39,7 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
                 EC.presence_of_all_elements_located((By.CLASS_NAME, "cl-paper-row"))
             )
             # Close the cookie banner if present
-            close_cookie_banner(driver)
+            crawler.close_cookie_banner()
                 
             # Adding delay to ensure the page has enough time to load
             time.sleep(5)
@@ -137,9 +56,11 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
             
             # Extract and print the information from each result
             for i, result in enumerate(results):
+                logger.log_message("result: " + str(result))
+
                 try:
-                    title, ss_id = extract_title_and_ss_id(result)
-                    abstract = extract_abstract(result, driver, i)
+                    title, ss_id = crawler.extract_title_and_ss_id(result)
+                    abstract = crawler.extract_abstract(result, i, ss_id)
                     print(f"Title: {title}\nPaper ID: {ss_id}\nAbstract: {abstract}")
                 except AttributeError as e:
                     print(f"Error parsing result: {e}")
@@ -155,6 +76,20 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
             break  # Optionally, you can choose to retry or skip this page
     
     driver.quit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def main():
     logger = Logger() # To log last try
