@@ -241,7 +241,7 @@ class Crawler:
                 if response.status_code == 200:
                     collated_references_and_citations[paper_id]["citations"] = response.json()
                 else:
-                    self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Error: {response.status_code}, {response.text}")
+                    self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Error: {response.status_code}")
                     raise Exception(f"Error: {response.status_code}, {response.text}")
             except Exception as e:
                 self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
@@ -255,7 +255,7 @@ class Crawler:
                 if response.status_code == 200:
                     collated_references_and_citations[paper_id]["references"] = response.json()
                 else:
-                    self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {response.status_code}, {response.text}")
+                    self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {response.status_code}")
                     raise Exception(f"Error: {response.status_code}, {response.text}")
             except Exception as e:
                 self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
