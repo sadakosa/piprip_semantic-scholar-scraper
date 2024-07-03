@@ -5,20 +5,19 @@
 
 **1. Setup Environment**
 ```
-https://github.com/sadakosa/semantic-scholar-scraper.git
+git clone https://github.com/sadakosa/semantic-scholar-scraper.git
 
 install python 
-- sudo yum install -y python3-pip
-- sudo yum install -y python3
+sudo yum install -y python3-pip
+sudo yum install -y python3
 
 To setup local environment:
 - python -m venv env
 - .\env\Scripts\activate
-- pip install -r requirements.txt
+pip install -r requirements.txt
 - deactivate << to exit and enter another environment (e.g., if I have multiple python projects)
 
-- set up config file and yaml
-- set up logger and logs
+
 
 - Install chrome on EC2: 
 
@@ -30,12 +29,30 @@ unzip chromedriver-linux64.zip
 sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
 sudo chmod +x /usr/local/bin/chromedriver
 
-
-
-<!-- sudo mv chromedriver-linux64 /usr/local/bin/ -->
-sudo chmod +x chromedriver-linux64
-
 pip install selenium bs4 psycopg2-binary
+
+- set up config file and yaml
+- set up logger and logs
+
+Change search term 
+
+
+
+Node js and NPM
+sudo yum update -y
+curl -sL https://rpm.nodesource.com/setup_21.x | sudo bash -
+sudo yum install -y nodejs
+sudo npm install -g pm2
+
+
+
+pm2 start "python3 main.py"
+
+
+REMOVE EXISTING CHROMEDRIVER - sudo rm -f /usr/local/bin/chromedriver
+
+
+
 
 
 # List and kill all Python processes
@@ -67,6 +84,25 @@ On Postgres
 
 ```
 
+
+
+## Maintenance of the servers
+```
+
+# List and kill all Python processes
+ps aux | grep python | grep -v grep | awk '{print $2}' | xargs -r kill -9
+
+
+pm2 status
+pm2 restart 1
+
+git fetch
+git reset --hard origin/main
+
+
+
+
+```
 
 ## Old
 ```
