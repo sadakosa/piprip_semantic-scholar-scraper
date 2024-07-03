@@ -18,7 +18,7 @@ import requests
 # - close_cookie_banner: Closes the cookie banner if present
 # - extract_title_and_ss_id: Extracts the title and Semantic Scholar ID from a search result
 # - extract_abstract: Extracts the abstract from a search result
-# - extract_references: Extracts the references from a search result
+# - extract_references_and_citations: Extracts the references from a search result
 # ====================================================================================================
 
 
@@ -211,40 +211,56 @@ class Crawler:
     # Main Extract References Function, and the corresponding private functions used below it. 
     # ====================================================================================================
 
-    def extract_references(self, paper_id):
-
+    def extract_references_and_citations(self, start_paper, end_paper):
         # retrieve papers from database
         # call the semantic scholar API for references and citations
         # iterate through the references and citations and insert them into the database
 
-        print(f"Extracting references for paper {paper_id}...")
-        
-        references = self.__get_paper_references(paper_id)
-        citations = self.__get_paper_citations(paper_id)
+        paper_ids = db_operations.get_all_paper_ids(self.db_client)
+        self.logger.log_message(f"Retrieved all paper IDs. Paper ID: {paper_ids}.")
+        collated_references_and_citations = {}
 
-        print("References:", references)
-        print("Citations:", citations)
+        for paper_id, is_processed in paper_ids[start_paper:end_paper]:
+            
+            if is_processed:
+                continue
+            
+            collated_references_and_citations[paper_id] = {
+                "references": [],
+                "citations": []
+            }
+            
+            print(f"Extracting references and citations for paper {paper_id}...")
 
-        # db_operations.insert_reference(self.db_client, paper_id, reference_id)
+            # citations
+            try:
+                url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/citations?fields=paperId,title,abstract,url"
 
-    def __get_paper_references(paper_id, api_key=None):
-        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references"
-        headers = {"x-api-key": api_key} if api_key else {}
-        
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error: {response.status_code}, {response.text}")
+                response = requests.get(url)
 
-    def __get_paper_citations(paper_id, api_key=None):
-        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/citations"
-        headers = {"x-api-key": api_key} if api_key else {}
-        
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error: {response.status_code}, {response.text}")
+                if response.status_code == 200:
+                    collated_references_and_citations[paper_id]["citations"] = response.json()
+                else:
+                    self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Error: {response.status_code}, {response.text}")
+                    raise Exception(f"Error: {response.status_code}, {response.text}")
+            except Exception as e:
+                self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
+
+            # references
+            try:
+                url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references?fields=paperId,title,abstract,url"
+
+                response = requests.get(url)
+
+                if response.status_code == 200:
+                    collated_references_and_citations[paper_id]["references"] = response.json()
+                else:
+                    self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {response.status_code}, {response.text}")
+                    raise Exception(f"Error: {response.status_code}, {response.text}")
+            except Exception as e:
+                self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
+
+            
+        self.logger.log_message(f"Collated references and citations. Start paper: {start_paper}, end paper: {end_paper}.")
+        return collated_references_and_citations
+    

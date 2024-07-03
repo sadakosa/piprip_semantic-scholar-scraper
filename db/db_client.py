@@ -18,8 +18,7 @@ class DBClient:
 
     def execute(self, query, params=None):
         self.cur.execute(query, params)
-        if self.cur.description:  # Check if the query returns rows
-            return self.cur.fetchall()
+        return self.cur
 
     def commit(self):
         self.conn.commit()

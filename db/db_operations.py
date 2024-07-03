@@ -27,6 +27,9 @@ def create_references_table(db_client):
 
 
 def insert_paper(db_client, ss_id, title, abstract, url):
+    if ss_id or title is null:
+        abstract = 'No Abstract'
+        
     insert_query = """
     INSERT INTO papers (ss_id, title, abstract, url)
         VALUES (%s, %s, %s, %s)
@@ -46,6 +49,26 @@ def insert_reference(db_client, ss_id, reference_id):
 
 def get_all_paper_ids(db_client):
     select_query = """
-    SELECT ss_id FROM papers;
+    SELECT ss_id, is_processed FROM papers
+    WHERE is_processed = FALSE;
     """
-    return db_client.execute(select_query).fetchall()
+    cursor = db_client.execute(select_query)
+    return cursor.fetchall()
+
+def checked_for_references_and_citations(db_client):
+    insert_query = """
+    ALTER TABLE papers ADD COLUMN is_processed BOOLEAN DEFAULT FALSE;
+    """
+    db_client.execute(insert_query)
+    db_client.commit()
+
+def update_is_processed(db_client, ss_id):
+    update_query = """
+    UPDATE papers
+    SET is_processed = TRUE
+    WHERE ss_id = %s;
+    """
+    db_client.execute(update_query, (ss_id,))
+    db_client.commit()
+
+

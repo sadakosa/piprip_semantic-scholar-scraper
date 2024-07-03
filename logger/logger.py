@@ -5,7 +5,8 @@ class Logger: # to store what was the latest successful URL (after saved in SQL)
     def __init__(self):
         self.log_dir = "logger/logs"
         self.log_file = self.get_log_file_name()
-        self.file = open(self.log_file, 'a')
+        self.file = open(self.log_file, 'a', encoding='utf-8')
+
 
     def get_log_file_name(self):
         current_datetime = datetime.datetime.now()
