@@ -199,7 +199,11 @@ def scrape_references_and_citations(logger, db_client, start_paper, end_paper):
 
     # Iterate through the paper_ids and extract the paperId, title, and abstract
     for paper_id in paper_ids:
-        for citation in references_and_citations[paper_id]['citations']["data"]:
+        citations = references_and_citations[paper_id]['citations']
+        if isinstance(citations, dict):
+            citations = citations.get("data", [])
+
+        for citation in citations:
             citing_paper = citation.get('citingPaper', {})
             paper_id_citing = citing_paper.get('paperId', 'unknown_id')
             title_citing = citing_paper.get('title', 'No Title')
@@ -211,9 +215,13 @@ def scrape_references_and_citations(logger, db_client, start_paper, end_paper):
                 db_operations.insert_reference(db_client, paper_id_citing, paper_id)
             else:
                 logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
+        
+        
+        references = references_and_citations[paper_id]['references']
+        if isinstance(references, dict):
+            references = references.get("data", [])
 
-
-        for reference in references_and_citations[paper_id]['references']["data"]:
+        for reference in references:
             cited_paper = reference.get('citedPaper', {})
             paper_id_cited = cited_paper.get('paperId', 'unknown_id')
             title_cited = cited_paper.get('title', 'No Title')
@@ -232,6 +240,9 @@ def scrape_references_and_citations(logger, db_client, start_paper, end_paper):
             db_operations.update_is_processed(db_client, paper_id)
         except Exception as e:
             logger.log_message(f"An error occurred while updating is_processed for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")  
+        
+        # Add a wait time between processing each paper to avoid rate limiting
+        time.sleep(1) 
 
     # Record the last successful trial
     logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
