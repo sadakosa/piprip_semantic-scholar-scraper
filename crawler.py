@@ -11,6 +11,8 @@ import requests
 import os
 import json
 
+from global_methods import load_checkpoint_references, save_checkpoint_references
+
 
 
 # ====================================================================================================
@@ -224,27 +226,28 @@ class Crawler:
         collated_references_and_citations = {}
         temp_data = 0
 
-        # Load checkpoint if it exists
-        if os.path.exists(checkpoint_file):
-            with open(checkpoint_file, "r") as file:
-                checkpoint_data = json.load(file)
-                temp_data = checkpoint_data.get("last_processed_paper", start_paper)
-                start_paper = int(checkpoint_data.get("last_processed_index", start_paper))
-                collated_references_and_citations = checkpoint_data.get("collated_references_and_citations", {})
+        checkpoint = load_checkpoint_references()
+        if checkpoint is None:
+            checkpoint = {
+                'last_processed_paper': 0,
+                'last_processed_index': 0,
+                'collated_references_and_citations': {}
+            }
+        
+        temp_data = int(checkpoint['last_processed_paper'])
+        start_paper = int(checkpoint['last_processed_index'])
+        collated_references_and_citations = checkpoint["collated_references_and_citations"]
 
         for idx, (id, ss_id, is_processed) in enumerate(paper_ids[start_paper:end_paper], start=start_paper):
                      
             if is_processed:
-
-                # Save checkpoint after processing each paper
-                checkpoint_data = {
+                # Save checkpoint as paper has been processed
+                checkpoint = {
                     "last_processed_paper": temp_data,
                     "last_processed_index": id,
                     "collated_references_and_citations": collated_references_and_citations
                 }
-                with open(checkpoint_file, "w") as file:
-                    json.dump(checkpoint_data, file)
-                continue
+                save_checkpoint_references(checkpoint)
             
             collated_references_and_citations[id] = {
                 "ss_id": ss_id,
@@ -285,13 +288,12 @@ class Crawler:
 
             # self.logger.log_message(f"Collated references and citations for paper {id}. References: {collated_references_and_citations[id]['references']}, Citations: {collated_references_and_citations[id]['citations']}")
             # Save checkpoint after processing each paper
-            checkpoint_data = {
+            checkpoint = {
                 "last_processed_paper": temp_data,
-                "last_processed_index": str(id),
+                "last_processed_index": id,
                 "collated_references_and_citations": collated_references_and_citations
             }
-            with open(checkpoint_file, "w") as file:
-                json.dump(checkpoint_data, file)
+            save_checkpoint_references(checkpoint)
 
         self.logger.log_message(f"Collated references and citations. Start paper: {start_paper}, end paper: {end_paper}.")
         

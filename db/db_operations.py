@@ -46,7 +46,7 @@ def insert_paper(db_client, ss_id, title, abstract, url):
     db_client.commit()
 
 def insert_reference(db_client, ss_id, reference_id):
-    print(f"Inserting reference: {ss_id} -> {reference_id}")
+    # print(f"Inserting reference: {ss_id} -> {reference_id}")
     insert_query = """
     INSERT INTO "references" (ss_id, reference_id)
         VALUES (%s, %s)

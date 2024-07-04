@@ -283,8 +283,9 @@ def main():
     # =============================================
     # SCRAPE REFERENCES
     # =============================================
-    start_paper = 30
-    end_paper = 32
+    start_paper = 1
+    end_paper = 200
+
     scrape_references_and_citations(logger, db_client, start_paper, end_paper)
     
     logger.close_log_file()
