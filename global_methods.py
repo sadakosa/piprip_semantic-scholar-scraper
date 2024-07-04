@@ -38,10 +38,20 @@ def load_checkpoint_scrape():
 
 
 
+# def load_checkpoint_references():
+#     if os.path.exists(CHECKPOINT_FILE):
+#         with open(CHECKPOINT_FILE, 'r') as file:
+#             return json.load(file)
+#     return None
+
 def load_checkpoint_references():
     if os.path.exists(CHECKPOINT_FILE):
         with open(CHECKPOINT_FILE, 'r') as file:
-            return json.load(file)
+            try:
+                return json.load(file)
+            except json.JSONDecodeError as e:
+                print(f"Error loading JSON from checkpoint file: {e}")
+                return None
     return None
 
 def save_checkpoint_references(checkpoint):
