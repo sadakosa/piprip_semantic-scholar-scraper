@@ -27,9 +27,16 @@ def create_references_table(db_client):
 
 
 def insert_paper(db_client, ss_id, title, abstract, url):
-    if ss_id or title is null:
-        abstract = 'No Abstract'
-        
+    if ss_id is None or title is None:
+        # print("Invalid paper data")
+        # print(ss_id, title, abstract, url)
+        return
+    
+    if abstract is None:
+        abstract = "No abstract available"
+    
+    # print(f"Inserting paper: {ss_id}")
+    
     insert_query = """
     INSERT INTO papers (ss_id, title, abstract, url)
         VALUES (%s, %s, %s, %s)
@@ -39,6 +46,7 @@ def insert_paper(db_client, ss_id, title, abstract, url):
     db_client.commit()
 
 def insert_reference(db_client, ss_id, reference_id):
+    print(f"Inserting reference: {ss_id} -> {reference_id}")
     insert_query = """
     INSERT INTO "references" (ss_id, reference_id)
         VALUES (%s, %s)
@@ -49,8 +57,8 @@ def insert_reference(db_client, ss_id, reference_id):
 
 def get_all_paper_ids(db_client):
     select_query = """
-    SELECT ss_id, is_processed FROM papers
-    WHERE is_processed = FALSE;
+    SELECT id, ss_id, is_processed FROM papers
+    ORDER BY id;
     """
     cursor = db_client.execute(select_query)
     return cursor.fetchall()

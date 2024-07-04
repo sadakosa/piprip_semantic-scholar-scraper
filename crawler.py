@@ -8,6 +8,9 @@ from bs4 import BeautifulSoup
 from db import db_operations
 import requests
 
+import os
+import json
+
 
 
 # ====================================================================================================
@@ -211,56 +214,86 @@ class Crawler:
     # Main Extract References Function, and the corresponding private functions used below it. 
     # ====================================================================================================
 
-    def extract_references_and_citations(self, start_paper, end_paper):
+    def extract_references_and_citations(self, start_paper, end_paper, checkpoint_file="checkpoint.json"):
         # retrieve papers from database
         # call the semantic scholar API for references and citations
         # iterate through the references and citations and insert them into the database
 
         paper_ids = db_operations.get_all_paper_ids(self.db_client)
-        self.logger.log_message(f"Retrieved all paper IDs. Paper ID: {paper_ids}.")
+        # self.logger.log_message(f"Retrieved all paper IDs. Paper IDs: {paper_ids}.")
         collated_references_and_citations = {}
+        temp_data = 0
 
-        for paper_id, is_processed in paper_ids[start_paper:end_paper]:
-            
+        # Load checkpoint if it exists
+        if os.path.exists(checkpoint_file):
+            with open(checkpoint_file, "r") as file:
+                checkpoint_data = json.load(file)
+                temp_data = checkpoint_data.get("last_processed_paper", start_paper)
+                start_paper = int(checkpoint_data.get("last_processed_index", start_paper))
+                collated_references_and_citations = checkpoint_data.get("collated_references_and_citations", {})
+
+        for idx, (id, ss_id, is_processed) in enumerate(paper_ids[start_paper:end_paper], start=start_paper):
+                     
             if is_processed:
+
+                # Save checkpoint after processing each paper
+                checkpoint_data = {
+                    "last_processed_paper": temp_data,
+                    "last_processed_index": id,
+                    "collated_references_and_citations": collated_references_and_citations
+                }
+                with open(checkpoint_file, "w") as file:
+                    json.dump(checkpoint_data, file)
                 continue
             
-            collated_references_and_citations[paper_id] = {
+            collated_references_and_citations[id] = {
+                "ss_id": ss_id,
                 "references": [],
                 "citations": []
             }
             
-            print(f"Extracting references and citations for paper {paper_id}...")
+            print(f"Extracting references and citations for paper {id}...")
 
             # citations
             try:
-                url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/citations?fields=paperId,title,abstract,url"
+                url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}/citations?fields=paperId,title,abstract,url"
 
                 response = requests.get(url)
+                # print(f"Response for paper {id}: {response}")
 
                 if response.status_code == 200:
-                    collated_references_and_citations[paper_id]["citations"] = response.json()
+                    collated_references_and_citations[id]["citations"] = response.json()
                 else:
-                    self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Error: {response.status_code}")
+                    self.logger.log_message(f"An error occurred while extracting citations for paper {id}. Error: {response.status_code}")
                     raise Exception(f"Error: {response.status_code}, {response.text}")
             except Exception as e:
-                self.logger.log_message(f"An error occurred while extracting citations for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
+                self.logger.log_message(f"An error occurred while extracting citations for paper {id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
 
             # references
             try:
-                url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references?fields=paperId,title,abstract,url"
+                url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}/references?fields=paperId,title,abstract,url"
 
                 response = requests.get(url)
 
                 if response.status_code == 200:
-                    collated_references_and_citations[paper_id]["references"] = response.json()
+                    collated_references_and_citations[id]["references"] = response.json()
                 else:
-                    self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {response.status_code}")
+                    self.logger.log_message(f"An error occurred while extracting references for paper {ss_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {response.status_code}")
                     raise Exception(f"Error: {response.status_code}, {response.text}")
             except Exception as e:
-                self.logger.log_message(f"An error occurred while extracting references for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
+                self.logger.log_message(f"An error occurred while extracting references for paper {ss_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")
 
-            
+            # self.logger.log_message(f"Collated references and citations for paper {id}. References: {collated_references_and_citations[id]['references']}, Citations: {collated_references_and_citations[id]['citations']}")
+            # Save checkpoint after processing each paper
+            checkpoint_data = {
+                "last_processed_paper": temp_data,
+                "last_processed_index": str(id),
+                "collated_references_and_citations": collated_references_and_citations
+            }
+            with open(checkpoint_file, "w") as file:
+                json.dump(checkpoint_data, file)
+
         self.logger.log_message(f"Collated references and citations. Start paper: {start_paper}, end paper: {end_paper}.")
+        
         return collated_references_and_citations
     

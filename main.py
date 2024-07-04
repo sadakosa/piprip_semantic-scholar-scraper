@@ -9,37 +9,17 @@ from selenium.webdriver.chrome.options import Options
 
 from logger.logger import Logger
 from db.db_client import DBClient
-from global_methods import load_yaml_config, make_url_friendly
+from global_methods import load_yaml_config, make_url_friendly, load_checkpoint_references, save_checkpoint_references, load_checkpoint_scrape, save_checkpoint_scrape
 from db import db_operations
 
 # from random_1 import extract_abstract_test
 from crawler import Crawler
 
-
-
-# ====================================================================================================
-# Checkpoint Functions
-# ====================================================================================================
-
 import json
 import os
 
-CHECKPOINT_FILE = 'checkpoint.json'
 
-def save_checkpoint(search_term, current_page, last_processed_item):
-    checkpoint = {
-        'search_term': search_term,
-        'current_page': current_page,
-        'last_processed_item': last_processed_item
-    }
-    with open(CHECKPOINT_FILE, 'w') as file:
-        json.dump(checkpoint, file)
 
-def load_checkpoint():
-    if os.path.exists(CHECKPOINT_FILE):
-        with open(CHECKPOINT_FILE, 'r') as file:
-            return json.load(file)
-    return None
 
 
 
@@ -54,13 +34,13 @@ def load_checkpoint():
 def search_and_scrape(term, start_page, end_page, logger, db_client):
 
     # Load the checkpoint if it exists
-    checkpoint = load_checkpoint()
+    checkpoint = load_checkpoint_scrape()
     if checkpoint:
         start_page = checkpoint['current_page']
         term = checkpoint['search_term']
         
 
-    checkpoint = load_checkpoint()
+    checkpoint = load_checkpoint_scrape()
     if checkpoint and checkpoint['search_term'] == term:
         start_page = checkpoint['current_page']
         last_processed_item = checkpoint['last_processed_item']
@@ -131,7 +111,7 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
                     logger.log_message(f"Error parsing result for result {i} on page {current_page}, search term {term}. Error: {e}")
                 
                 # Save the checkpoint after processing each item
-                save_checkpoint(term, current_page, i)
+                save_checkpoint_scrape(term, current_page, i)
 
             # Record the last successful trial
             logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}], Date-Time [{time.ctime()}]")
@@ -142,7 +122,7 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
             # print(f"An error occurred on page {current_page}: {e}")
             logger.log_message(f"An error occurred on page {current_page} for search term {term}. Error: {e}")
             logger.log_message(f"Last successful trial: Current Page [{current_page}], Search Term [{term}]")
-            break  # Optionally, you can choose to retry or skip this page
+            continue  # Optionally, you can choose to retry or skip this page
     
     driver.quit()
 
@@ -167,82 +147,89 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
 def scrape_references_and_citations(logger, db_client, start_paper, end_paper):
     crawler = Crawler(logger, db_client)
 
+    checkpoint = load_checkpoint_references()
+    if checkpoint and 'last_processed_paper' in checkpoint:
+        # logger.log_message(f"Resuming from checkpoint: {checkpoint}")
+        start_paper = int(checkpoint['last_processed_paper'])
+    else:
+        checkpoint = {
+            'last_processed_paper': 0,
+            'last_processed_index': 0,
+            'collated_references_and_citations': {}
+        }
+
     references_and_citations = crawler.extract_references_and_citations(start_paper, end_paper)
     references_and_citations_string = json.dumps(references_and_citations)
     logger.log_message(f"References and Citations: {references_and_citations_string}")
 
-    # get an array of the keys in the references_and_citations dictionary
-    paper_ids = references_and_citations.keys()
+    # Get an array of the keys in the references_and_citations dictionary
+    string_keys = list(references_and_citations.keys())
+    numeric_keys = [int(key) for key in string_keys] 
 
-    # # iterate through the paper_ids and extract the paperId, title, and abstract
-    # for paper_id in paper_ids:
-    #     title, abstract = references_and_citations[paper_id]
-    #     db_operations.insert_paper(db_client, paper_id, title, abstract, None)
-
-    #     # iterate through the references and citations for each paper
-    #     for reference in references_and_citations[paper_id]['references']:
-    #         db_operations.insert_reference(db_client, paper_id, reference)
-
-    # # Iterate through the paper_ids and extract the paperId, title, and abstract
-    # for paper_id in paper_ids:
-    #     for citation in references_and_citations[paper_id]['citations']["data"]:
-    #         db_operations.insert_paper(db_client, citation["citingPaper"]['paperId'], citation["citingPaper"]['title'], citation["citingPaper"]['abstract'], citation["citingPaper"]['url'])
-    #         db_operations.insert_reference(db_client, citation["citingPaper"]['paperId'], paper_id)
-
-    #     for reference in references_and_citations[paper_id]['references']["data"]:
-    #         db_operations.insert_paper(db_client, reference["citedPaper"]['paperId'], reference["citedPaper"]['title'], reference["citedPaper"]['abstract'], reference["citedPaper"]['url'])
-    #         db_operations.insert_reference(db_client, paper_id, reference["citedPaper"]['paperId'])
+    # Find the minimum and maximum numeric keys
+    min_key = min(numeric_keys)
+    max_key = max(numeric_keys)
+    print("keys: ", min_key, max_key)
 
     def return_string_if_nonenull(input, input_name):
         if input is None:
             return "No " + input_name + " available"
 
     # Iterate through the paper_ids and extract the paperId, title, and abstract
-    for paper_id in paper_ids:
-        citations = references_and_citations[paper_id]['citations']
-        if isinstance(citations, dict):
-            citations = citations.get("data", [])
+    for num in range(min_key, max_key + 1):
+        str_num = str(num)
+        print(f"Processing paper before string conversion: {str_num}")
+        if str_num in references_and_citations:
+            print(f"Processing paper: {str_num}")
+            ss_id = references_and_citations[str_num]['ss_id']
 
-        for citation in citations:
-            citing_paper = citation.get('citingPaper', {})
-            paper_id_citing = citing_paper.get('paperId', 'unknown_id')
-            title_citing = citing_paper.get('title', 'No Title')
-            abstract_citing = return_string_if_nonenull(citing_paper.get('abstract', 'No abstract available'), "abstract")
-            url_citing = citing_paper.get('url', None)
+            citations = references_and_citations[str_num]['citations']
+            if isinstance(citations, dict):
+                citations = citations.get("data", [])
 
-            if paper_id_citing and title_citing:
-                db_operations.insert_paper(db_client, paper_id_citing, title_citing, abstract_citing, url_citing)
-                db_operations.insert_reference(db_client, paper_id_citing, paper_id)
-            else:
-                logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
-        
-        
-        references = references_and_citations[paper_id]['references']
-        if isinstance(references, dict):
-            references = references.get("data", [])
+            for citation in citations:
+                citing_paper = citation.get('citingPaper', {})
+                ss_id_citing = citing_paper.get('paperId', 'unknown_id')
+                title_citing = citing_paper.get('title', 'No Title')
+                abstract_citing = return_string_if_nonenull(citing_paper.get('abstract', 'No abstract available'), "abstract")
+                url_citing = citing_paper.get('url', None)
 
-        for reference in references:
-            cited_paper = reference.get('citedPaper', {})
-            paper_id_cited = cited_paper.get('paperId', 'unknown_id')
-            title_cited = cited_paper.get('title', 'No Title')
-            abstract_cited = return_string_if_nonenull(cited_paper.get('abstract', 'No abstract available'), "abstract")
-            url_cited = cited_paper.get('url', None)
+                if ss_id_citing and title_citing:
+                    db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing)
+                    db_operations.insert_reference(db_client, ss_id_citing, ss_id)
+                else:
+                    logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
+            
+            
+            references = references_and_citations[str_num]['references']
+            if isinstance(references, dict):
+                references = references.get("data", [])
 
-            if paper_id_cited and title_cited:
-                db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited)
-                db_operations.insert_reference(db_client, paper_id, paper_id_cited)
-            else:
-                logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
+            for reference in references:
+                cited_paper = reference.get('citedPaper', {})
+                paper_id_cited = cited_paper.get('paperId', 'unknown_id')
+                title_cited = cited_paper.get('title', 'No Title')
+                abstract_cited = return_string_if_nonenull(cited_paper.get('abstract', 'No abstract available'), "abstract")
+                url_cited = cited_paper.get('url', None)
 
+                if paper_id_cited and title_cited:
+                    db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited)
+                    db_operations.insert_reference(db_client, ss_id, paper_id_cited)
+                else:
+                    logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
 
-        # Update is_processed to TRUE after processing
-        try:
-            db_operations.update_is_processed(db_client, paper_id)
-        except Exception as e:
-            logger.log_message(f"An error occurred while updating is_processed for paper {paper_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")  
-        
-        # Add a wait time between processing each paper to avoid rate limiting
-        time.sleep(1) 
+            # Update is_processed to TRUE after processing
+            try:
+                db_operations.update_is_processed(db_client, ss_id)
+            except Exception as e:
+                logger.log_message(f"An error occurred while updating is_processed for paper {str_num}, {ss_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")  
+            
+            # Save checkpoint after processing each paper
+            checkpoint['last_processed_paper'] = num - min_key + 1
+            save_checkpoint_references(checkpoint)
+
+            # Add a wait time between processing each paper to avoid rate limiting
+            time.sleep(1) 
 
     # Record the last successful trial
     logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
@@ -296,8 +283,8 @@ def main():
     # =============================================
     # SCRAPE REFERENCES
     # =============================================
-    start_paper = 0
-    end_paper = 4
+    start_paper = 30
+    end_paper = 32
     scrape_references_and_citations(logger, db_client, start_paper, end_paper)
     
     logger.close_log_file()

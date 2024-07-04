@@ -21,4 +21,5 @@ class DBClient:
         return self.cur
 
     def commit(self):
+        # print("Committing transaction")
         self.conn.commit()
