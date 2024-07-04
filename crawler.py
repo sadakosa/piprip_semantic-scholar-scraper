@@ -230,7 +230,7 @@ class Crawler:
         if checkpoint is None:
             checkpoint = {
                 'last_processed_paper': 0,
-                'last_processed_index': 0,
+                'last_processed_index': start_paper,
                 'collated_references_and_citations': {}
             }
         
