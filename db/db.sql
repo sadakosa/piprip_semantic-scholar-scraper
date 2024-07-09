@@ -6,6 +6,8 @@ CREATE TABLE Papers (
     author TEXT,
     publication_date TEXT,
     abstract TEXT NOT NULL,
+    search_term TEXT,
+    num_hops INTEGER,
     url TEXT 
 );
 

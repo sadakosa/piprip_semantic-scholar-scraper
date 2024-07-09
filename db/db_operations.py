@@ -6,6 +6,8 @@ def create_paper_table(db_client):
         ss_id TEXT NOT NULL UNIQUE,
         title TEXT NOT NULL,
         abstract TEXT NOT NULL,
+        search_term TEXT,
+        num_hops INTEGER,
         url TEXT
     );
     """
@@ -26,7 +28,7 @@ def create_references_table(db_client):
     db_client.commit()
 
 
-def insert_paper(db_client, ss_id, title, abstract, url):
+def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
     if ss_id is None or title is None:
         # print("Invalid paper data")
         # print(ss_id, title, abstract, url)
@@ -38,11 +40,11 @@ def insert_paper(db_client, ss_id, title, abstract, url):
     # print(f"Inserting paper: {ss_id}")
     
     insert_query = """
-    INSERT INTO papers (ss_id, title, abstract, url)
-        VALUES (%s, %s, %s, %s)
+    INSERT INTO papers (ss_id, title, abstract, url, search_term, num_hops)
+        VALUES (%s, %s, %s, %s, %s, %s)
         ON CONFLICT (ss_id) DO NOTHING;
     """
-    db_client.execute(insert_query, (ss_id, title, abstract, url))
+    db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
     db_client.commit()
 
 def insert_reference(db_client, ss_id, reference_id):
