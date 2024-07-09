@@ -12,8 +12,7 @@ cd semantic-scholar-scraper
 
 
 2. TO INSTALL PYTHON AND PIP
-sudo yum install -y python3-pip
-sudo yum install -y python3
+sudo yum install -y python3-pip python3
 
 
 3. TO INSTALL CHROME AND CHROME DRIVER

@@ -253,7 +253,7 @@ def scrape_references_and_citations_old(logger, db_client, start_paper, end_pape
     logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
     
     
-def scrape_references_and_citations(logger, db_client, start_paper, end_paper):
+def scrape_references_and_citations(logger, db_client, search_term, previous_hop):
     crawler = Crawler(logger, db_client)
 
     checkpoint = load_checkpoint_references()
@@ -397,24 +397,25 @@ def main():
 
     # Example usage
     start_page = 1
-    end_page = 2
+    end_page = 100
 
-    # for i in range(start_term, end_term + 1):
-    #     search_term = search_terms[i][0]
-    #     parsed_search_term = make_url_friendly(search_term)
-    #     search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+    for i in range(start_term, end_term + 1):
+        search_term = search_terms[i][0]
+        parsed_search_term = make_url_friendly(search_term)
+        search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
 
     # =============================================
     # SCRAPE REFERENCES
     # =============================================
     start_paper = 100
     end_paper = 102
+    previous_hop = 0
 
-    for i in range(start_term, end_term + 1):
-        search_term = search_terms[i][0]
-        parsed_search_term = make_url_friendly(search_term)
-        # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
-        scrape_references_and_citations(logger, db_client, parsed_search_term)
+    # for i in range(start_term, end_term + 1):
+    #     search_term = search_terms[i][0]
+    #     parsed_search_term = make_url_friendly(search_term)
+    #     # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
+    #     scrape_references_and_citations(logger, db_client, parsed_search_term, previous_hop)
 
     
     logger.close_log_file()
