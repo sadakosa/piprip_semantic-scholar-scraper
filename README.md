@@ -8,6 +8,7 @@ Based on SearchAndScrapeFinal image in ap-southeast-2, launch instance. Then on 
 
 1. GIT CLONE
 git clone https://github.com/sadakosa/semantic-scholar-scraper.git
+cd semantic-scholar-scraper
 
 
 2. TO INSTALL PYTHON AND PIP
