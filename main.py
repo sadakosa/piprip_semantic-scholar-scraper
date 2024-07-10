@@ -162,6 +162,106 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
 # Second Scrapping Method - Scrape References & Citations
 # ====================================================================================================
 
+def scrape_references_and_citations(logger, db_client, search_term, previous_hop):
+    crawler = Crawler(logger, db_client)
+
+    checkpoint = load_checkpoint_references()
+    if checkpoint and 'last_processed_paper' in checkpoint:
+        start_paper = int(checkpoint['last_processed_paper'])
+    else:
+        checkpoint = {
+            'search_term': search_term,
+            'previous_hop': previous_hop,
+            'last_processed_paper': 0,
+            'collated_references_and_citations': {}
+        }
+        start_paper = 0
+
+    while True:
+        logger.log_message("retrieving papers from: ", start_paper)
+        references_and_citations, retrieved_count, list_of_new_ids = crawler.extract_references_and_citations(
+            search_term, previous_hop, start_paper, batch_size=2
+        )
+
+        if not retrieved_count:
+            logger.log_message("done with retrieving papers")
+            break  # Exit loop if no papers were processed in this batch
+        
+        logger.log_message("inserting references and citations for papers: ", start_paper, start_paper + retrieved_count - 1)
+        insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids)
+
+        checkpoint['last_processed_paper'] = start_paper + retrieved_count
+        checkpoint['collated_references_and_citations'].update(references_and_citations)
+        save_checkpoint_references(checkpoint)
+
+        start_paper += retrieved_count
+
+    references_and_citations_string = json.dumps(checkpoint['collated_references_and_citations'])
+    # print("References and Citations: ", references_and_citations_string)
+    logger.log_message(f"References and Citations: {references_and_citations_string}")
+
+    # Log the last successful trial
+    logger.log_message(f"Last successful trial: Search Term [{search_term}], Previous Hop [{previous_hop}], Last Retrieved Paper [{start_paper}], Date-Time [{time.ctime()}]")
+    remove_checkpoint()
+
+def insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids):
+    def return_string_if_nonenull(input, input_name):
+        if input is None:
+            return "No " + input_name + " available"
+        
+    # Iterate through the paper_ids and extract the paperId, title, and abstract
+    for id in list_of_new_ids:
+        print(f"Processing paper: {id}")
+        ss_id = references_and_citations[id]['ss_id']
+
+        citations = references_and_citations[id]['citations']
+        if isinstance(citations, dict):
+            citations = citations.get("data", [])
+
+        for citation in citations:
+            citing_paper = citation.get('citingPaper', {})
+            ss_id_citing = citing_paper.get('paperId', 'unknown_id')
+            title_citing = citing_paper.get('title', 'No Title')
+            abstract_citing = return_string_if_nonenull(citing_paper.get('abstract', 'No abstract available'), "abstract")
+            url_citing = citing_paper.get('url', None)
+
+            if ss_id_citing and title_citing:
+                db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
+                db_operations.insert_reference(db_client, ss_id_citing, ss_id)
+            else:
+                logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
+        
+        
+        references = references_and_citations[id]['references']
+        if isinstance(references, dict):
+            references = references.get("data", [])
+
+        for reference in references:
+            cited_paper = reference.get('citedPaper', {})
+            paper_id_cited = cited_paper.get('paperId', 'unknown_id')
+            title_cited = cited_paper.get('title', 'No Title')
+            abstract_cited = return_string_if_nonenull(cited_paper.get('abstract', 'No abstract available'), "abstract")
+            url_cited = cited_paper.get('url', None)
+
+            if paper_id_cited and title_cited:
+                db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited, search_term, previous_hop + 1)
+                db_operations.insert_reference(db_client, ss_id, paper_id_cited)
+            else:
+                logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
+
+        # Update is_processed to TRUE after processing
+        try:
+            db_operations.update_is_processed(db_client, ss_id)
+        except Exception as e:
+            logger.log_message(f"An error occurred while updating is_processed for paper {id}, {ss_id}. search_term: {search_term}, previous_hops: {previous_hop}. Error: {e}")  
+
+        # Add a wait time between processing each paper to avoid rate limiting
+        time.sleep(1) 
+
+
+
+
+
 def scrape_references_and_citations_old(logger, db_client, start_paper, end_paper):
     crawler = Crawler(logger, db_client)
 
@@ -176,7 +276,7 @@ def scrape_references_and_citations_old(logger, db_client, start_paper, end_pape
             'collated_references_and_citations': {}
         }
 
-    references_and_citations = crawler.extract_references_and_citations(start_paper, end_paper)
+    references_and_citations = crawler.extract_references_and_citations_old(start_paper, end_paper)
     references_and_citations_string = json.dumps(references_and_citations)
     logger.log_message(f"References and Citations: {references_and_citations_string}")
 
@@ -253,99 +353,6 @@ def scrape_references_and_citations_old(logger, db_client, start_paper, end_pape
     logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
     
     
-def scrape_references_and_citations(logger, db_client, search_term, previous_hop):
-    crawler = Crawler(logger, db_client)
-
-    checkpoint = load_checkpoint_references()
-    if checkpoint and 'last_processed_paper' in checkpoint:
-        # logger.log_message(f"Resuming from checkpoint: {checkpoint}")
-        start_paper = int(checkpoint['last_processed_paper'])
-    else:
-        checkpoint = {
-            'last_processed_paper': 0,
-            'last_processed_index': 0,
-            'collated_references_and_citations': {}
-        }
-
-    references_and_citations = crawler.extract_references_and_citations(start_paper, end_paper)
-    references_and_citations_string = json.dumps(references_and_citations)
-    logger.log_message(f"References and Citations: {references_and_citations_string}")
-
-    # Get an array of the keys in the references_and_citations dictionary
-    string_keys = list(references_and_citations.keys())
-    numeric_keys = [int(key) for key in string_keys] 
-
-    # Find the minimum and maximum numeric keys
-    min_key = min(numeric_keys)
-    max_key = max(numeric_keys)
-    print("keys: ", min_key, max_key)
-
-    def return_string_if_nonenull(input, input_name):
-        if input is None:
-            return "No " + input_name + " available"
-
-    # Iterate through the paper_ids and extract the paperId, title, and abstract
-    for num in range(min_key, max_key + 1):
-        str_num = str(num)
-        print(f"Processing paper before string conversion: {str_num}")
-        if str_num in references_and_citations:
-            print(f"Processing paper: {str_num}")
-            ss_id = references_and_citations[str_num]['ss_id']
-
-            citations = references_and_citations[str_num]['citations']
-            if isinstance(citations, dict):
-                citations = citations.get("data", [])
-
-            for citation in citations:
-                citing_paper = citation.get('citingPaper', {})
-                ss_id_citing = citing_paper.get('paperId', 'unknown_id')
-                title_citing = citing_paper.get('title', 'No Title')
-                abstract_citing = return_string_if_nonenull(citing_paper.get('abstract', 'No abstract available'), "abstract")
-                url_citing = citing_paper.get('url', None)
-
-                if ss_id_citing and title_citing:
-                    db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing)
-                    db_operations.insert_reference(db_client, ss_id_citing, ss_id)
-                else:
-                    logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
-            
-            
-            references = references_and_citations[str_num]['references']
-            if isinstance(references, dict):
-                references = references.get("data", [])
-
-            for reference in references:
-                cited_paper = reference.get('citedPaper', {})
-                paper_id_cited = cited_paper.get('paperId', 'unknown_id')
-                title_cited = cited_paper.get('title', 'No Title')
-                abstract_cited = return_string_if_nonenull(cited_paper.get('abstract', 'No abstract available'), "abstract")
-                url_cited = cited_paper.get('url', None)
-
-                if paper_id_cited and title_cited:
-                    db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited)
-                    db_operations.insert_reference(db_client, ss_id, paper_id_cited)
-                else:
-                    logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
-
-            # Update is_processed to TRUE after processing
-            try:
-                db_operations.update_is_processed(db_client, ss_id)
-            except Exception as e:
-                logger.log_message(f"An error occurred while updating is_processed for paper {str_num}, {ss_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")  
-            
-            # Save checkpoint after processing each paper
-            checkpoint['last_processed_paper'] = num - min_key + 1
-            save_checkpoint_references(checkpoint)
-
-            # Add a wait time between processing each paper to avoid rate limiting
-            time.sleep(1) 
-
-    # Record the last successful trial
-    logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
-    
-
-
-
 
 
 
@@ -389,7 +396,7 @@ def main():
 
     search_terms = get_search_terms() # there are 460 search terms in total
     start_term = 0
-    end_term = 1
+    end_term = 2
 
     # =============================================
     # SEARCH AND SCRAPE
@@ -397,12 +404,12 @@ def main():
 
     # Example usage
     start_page = 1
-    end_page = 100
+    end_page = 2
 
-    for i in range(start_term, end_term + 1):
-        search_term = search_terms[i][0]
-        parsed_search_term = make_url_friendly(search_term)
-        search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+    # for i in range(start_term, end_term + 1):
+    #     search_term = search_terms[i][0]
+    #     parsed_search_term = make_url_friendly(search_term)
+    #     search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
 
     # =============================================
     # SCRAPE REFERENCES
@@ -411,12 +418,11 @@ def main():
     end_paper = 102
     previous_hop = 0
 
-    # for i in range(start_term, end_term + 1):
-    #     search_term = search_terms[i][0]
-    #     parsed_search_term = make_url_friendly(search_term)
-    #     # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
-    #     scrape_references_and_citations(logger, db_client, parsed_search_term, previous_hop)
-
+    for i in range(start_term, end_term + 1):
+        search_term = search_terms[i][0]
+        # parsed_search_term = make_url_friendly(search_term)
+        # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
+        scrape_references_and_citations(logger, db_client, search_term, previous_hop)
     
     logger.close_log_file()
 

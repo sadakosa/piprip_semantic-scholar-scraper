@@ -8,7 +8,8 @@ def create_paper_table(db_client):
         abstract TEXT NOT NULL,
         search_term TEXT,
         num_hops INTEGER,
-        url TEXT
+        url TEXT, 
+        is_processed BOOLEAN DEFAULT FALSE
     );
     """
     db_client.execute(create_table_query)
@@ -64,6 +65,17 @@ def get_all_paper_ids(db_client):
     """
     cursor = db_client.execute(select_query)
     return cursor.fetchall()
+
+def get_all_paper_ids_with_params(db_client, search_term, num_hops):
+    select_query = """
+    SELECT id, ss_id, is_processed 
+    FROM papers
+    WHERE search_term = %s AND num_hops = %s
+    ORDER BY id;
+    """
+    cursor = db_client.execute(select_query, (search_term, num_hops))
+    return cursor.fetchall()
+
 
 def checked_for_references_and_citations(db_client):
     insert_query = """
