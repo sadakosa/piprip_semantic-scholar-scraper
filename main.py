@@ -10,8 +10,8 @@ import logging
 from logger.logger import Logger
 from db.db_client import DBClient
 from global_methods import load_yaml_config, make_url_friendly, undo_url_friendly, get_search_terms
-from global_methods import load_checkpoint_scrape, save_checkpoint_scrape, remove_checkpoint 
-from global_methods import load_checkpoint_references, save_checkpoint_references
+from global_methods import load_checkpoint_scrape, save_checkpoint_scrape, remove_checkpoint_scrape 
+from global_methods import load_checkpoint_references, save_checkpoint_references, remove_checkpoint_references
 from db import db_operations
 
 # from random_1 import extract_abstract_test
@@ -148,7 +148,7 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
     driver.quit()
 
     # Remove the checkpoint file after successful completion
-    remove_checkpoint()
+    remove_checkpoint_scrape()
 
 
 
@@ -202,7 +202,7 @@ def scrape_references_and_citations(logger, db_client, search_term, previous_hop
 
     # Log the last successful trial
     logger.log_message(f"Last successful trial: Search Term [{search_term}], Previous Hop [{previous_hop}], Last Retrieved Paper [{start_paper}], Date-Time [{time.ctime()}]")
-    remove_checkpoint()
+    remove_checkpoint_references()
 
 def insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids):
     def return_string_if_nonenull(input, input_name):
@@ -406,10 +406,10 @@ def main():
     start_page = 1
     end_page = 101
 
-    for i in range(start_term, end_term + 1):
-        search_term = search_terms[i][0]
-        parsed_search_term = make_url_friendly(search_term)
-        search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
+    # for i in range(start_term, end_term + 1):
+    #     search_term = search_terms[i][0]
+    #     parsed_search_term = make_url_friendly(search_term)
+    #     search_and_scrape(parsed_search_term, start_page, end_page, logger, db_client)
 
     # =============================================
     # SCRAPE REFERENCES
@@ -418,11 +418,11 @@ def main():
     end_paper = 102
     previous_hop = 0
 
-    # for i in range(start_term, end_term + 1):
-    #     search_term = search_terms[i][0]
-    #     # parsed_search_term = make_url_friendly(search_term)
-    #     # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
-    #     scrape_references_and_citations(logger, db_client, search_term, previous_hop)
+    for i in range(start_term, end_term + 1):
+        search_term = search_terms[i][0]
+        # parsed_search_term = make_url_friendly(search_term)
+        # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
+        scrape_references_and_citations(logger, db_client, search_term, previous_hop)
     
     logger.close_log_file()
 

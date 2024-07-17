@@ -3,3 +3,4 @@ env/
 config/config.yaml
 logger/logs
 checkpoint.json
+checkpoint_api.json

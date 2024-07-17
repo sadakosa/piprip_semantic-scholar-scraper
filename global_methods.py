@@ -39,7 +39,8 @@ def get_search_terms():
 # Checkpoint Functions
 # ====================================================================================================
 
-CHECKPOINT_FILE = 'checkpoint.json'
+CHECKPOINT_FILE_SEARCH = 'checkpoint.json'
+CHECKPOINT_FILE_API = 'checkpoint_api.json'
 
 def save_checkpoint_scrape(search_term, current_page, last_processed_item):
     checkpoint = {
@@ -47,18 +48,19 @@ def save_checkpoint_scrape(search_term, current_page, last_processed_item):
         'current_page': current_page,
         'last_processed_item': last_processed_item
     }
-    with open(CHECKPOINT_FILE, 'w') as file:
+    with open(CHECKPOINT_FILE_SEARCH, 'w') as file:
         json.dump(checkpoint, file)
 
 def load_checkpoint_scrape():
-    if os.path.exists(CHECKPOINT_FILE):
-        with open(CHECKPOINT_FILE, 'r') as file:
+    if os.path.exists(CHECKPOINT_FILE_SEARCH):
+        with open(CHECKPOINT_FILE_SEARCH, 'r') as file:
             return json.load(file)
     return None
 
-def remove_checkpoint():
-    if os.path.exists(CHECKPOINT_FILE):
-        os.remove(CHECKPOINT_FILE)
+def remove_checkpoint_scrape():
+    if os.path.exists(CHECKPOINT_FILE_SEARCH):
+        os.remove(CHECKPOINT_FILE_SEARCH)
+    
 
 
 
@@ -70,8 +72,8 @@ def remove_checkpoint():
 #     return None
 
 def load_checkpoint_references():
-    if os.path.exists(CHECKPOINT_FILE):
-        with open(CHECKPOINT_FILE, 'r') as file:
+    if os.path.exists(CHECKPOINT_FILE_API):
+        with open(CHECKPOINT_FILE_API, 'r') as file:
             try:
                 return json.load(file)
             except json.JSONDecodeError as e:
@@ -80,9 +82,10 @@ def load_checkpoint_references():
     return None
 
 def save_checkpoint_references(checkpoint):
-    with open(CHECKPOINT_FILE, 'w') as file:
+    with open(CHECKPOINT_FILE_API, 'w') as file:
         json.dump(checkpoint, file)
 
-
-
+def remove_checkpoint_references():
+    if os.path.exists(CHECKPOINT_FILE_API):
+        os.remove(CHECKPOINT_FILE_API)
 
