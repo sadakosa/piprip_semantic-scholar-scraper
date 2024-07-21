@@ -19,6 +19,9 @@ class DBClient:
     def execute(self, query, params=None):
         self.cur.execute(query, params)
         return self.cur
+    
+    def rollback(self):
+        self.conn.rollback()
 
     def commit(self):
         # print("Committing transaction")

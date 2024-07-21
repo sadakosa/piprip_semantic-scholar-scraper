@@ -45,6 +45,7 @@ def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_h
         db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
         db_client.commit()
     except Exception as e:
+        db_client.rollback()
         print(f"Failed to insert paper {ss_id}: {e}")
 
 
