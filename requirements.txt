@@ -7,3 +7,4 @@ yarl==1.8.2
 pyyaml==6.0.1
 psycopg2
 selenium
+asyncpg==0.29.0

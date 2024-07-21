@@ -5,10 +5,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from selenium.webdriver.chrome.options import Options
-import logging
+import asyncio
+import sys
 
 from logger.logger import Logger
 from db.db_client import DBClient
+from db.async_db_client import AsyncDBClient
 from global_methods import load_yaml_config, make_url_friendly, undo_url_friendly, get_search_terms
 from global_methods import load_checkpoint_scrape, save_checkpoint_scrape, remove_checkpoint_scrape 
 from global_methods import load_checkpoint_references, save_checkpoint_references, remove_checkpoint_references
@@ -162,7 +164,7 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
 # Second Scrapping Method - Scrape References & Citations
 # ====================================================================================================
 
-def scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop):
+async def scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop):
     crawler = Crawler(logger, db_client, db_read_client)
 
     checkpoint = load_checkpoint_references()
@@ -180,7 +182,7 @@ def scrape_references_and_citations(logger, db_client, db_read_client, search_te
     while True:
         logger.log_message("retrieving papers from: " + str(start_paper))
         references_and_citations, retrieved_count, list_of_new_ids = crawler.extract_references_and_citations(
-            search_term, previous_hop, start_paper, batch_size=200
+            search_term, previous_hop, start_paper, batch_size=2
         )
 
         if not retrieved_count:
@@ -188,7 +190,7 @@ def scrape_references_and_citations(logger, db_client, db_read_client, search_te
             break  # Exit loop if no papers were processed in this batch
         
         logger.log_message("inserting references and citations for papers: " + str(start_paper) + " - " + str(start_paper + retrieved_count - 1))
-        insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids)
+        await insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids)
 
         checkpoint['last_processed_paper'] = start_paper + retrieved_count
         checkpoint['collated_references_and_citations'].update(references_and_citations)
@@ -204,7 +206,7 @@ def scrape_references_and_citations(logger, db_client, db_read_client, search_te
     logger.log_message(f"Last successful trial: Search Term [{search_term}], Previous Hop [{previous_hop}], Last Retrieved Paper [{start_paper}], Date-Time [{time.ctime()}]")
     remove_checkpoint_references()
 
-def insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids):
+async def insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids):
     def return_string_if_nonenull(value, key):
         return value if value else f"No {key} available"
         
@@ -226,8 +228,8 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
 
             if ss_id_citing and title_citing:
                 print(f"Inserting citing paper: {ss_id_citing}")
-                db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
-                db_operations.insert_reference(db_client, ss_id_citing, ss_id)
+                await db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
+                await db_operations.insert_reference(db_client, ss_id_citing, ss_id)
             else:
                 logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
         
@@ -246,19 +248,19 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
 
             if paper_id_cited and title_cited:
                 print(f"Inserting cited paper: {paper_id_cited}")
-                db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited, search_term, previous_hop + 1)
-                db_operations.insert_reference(db_client, ss_id, paper_id_cited)
+                await db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited, search_term, previous_hop + 1)
+                await db_operations.insert_reference(db_client, ss_id, paper_id_cited)
             else:
                 logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
 
         # Update is_processed to TRUE after processing
         try:
-            db_operations.update_is_processed(db_client, ss_id)
+            await db_operations.update_is_processed(db_client, ss_id)
         except Exception as e:
             logger.log_message(f"An error occurred while updating is_processed for paper {id}, {ss_id}. search_term: {search_term}, previous_hops: {previous_hop}. Error: {e}")  
 
         # Add a wait time between processing each paper to avoid rate limiting
-        time.sleep(1) 
+        await asyncio.sleep(1) 
 
 
 
@@ -273,7 +275,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
 # MAIN FUNCTION
 # ====================================================================================================
 
-def main():
+async def main():
     logger = Logger() # To log last try
 
     # =============================================
@@ -290,8 +292,11 @@ def main():
     psql_port = config['PSQL_PORT'] if rds_db else config['LOCAL_PSQL_PORT']
     psql_read_host = config['PSQL_READ_HOST'] if rds_db else config['LOCAL_PSQL_HOST']
 
-    db_client = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
+    # db_client = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
     db_read_client = DBClient("postgres", psql_user, psql_password, psql_read_host, psql_port)
+    
+    db_client = AsyncDBClient(user=psql_user, password=psql_password, host=psql_host, port=psql_port, database="postgres")
+    await db_client.connect()
 
     # Set up the database schema
     # db_operations.create_paper_table(db_client)
@@ -302,7 +307,7 @@ def main():
     # =============================================
 
     search_terms = get_search_terms() # there are 460 search terms in total
-    start_term = 0
+    start_term = 5
     end_term = 6
 
     # =============================================
@@ -323,14 +328,17 @@ def main():
     # =============================================
     start_paper = 100
     end_paper = 102
-    previous_hop = 0
+    previous_hop = 1
 
     for i in range(start_term, end_term + 1):
         search_term = search_terms[i][0]
         logger.log_message(f"Processing search term: {search_term}")
-        scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop)
+        await scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop)
     
+    await db_client.close()
     logger.close_log_file()
 
 if __name__ == "__main__":
-    main()
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main())
