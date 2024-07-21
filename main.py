@@ -162,8 +162,8 @@ def search_and_scrape(term, start_page, end_page, logger, db_client):
 # Second Scrapping Method - Scrape References & Citations
 # ====================================================================================================
 
-def scrape_references_and_citations(logger, db_client, search_term, previous_hop):
-    crawler = Crawler(logger, db_client)
+def scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop):
+    crawler = Crawler(logger, db_client, db_read_client)
 
     checkpoint = load_checkpoint_references()
     if checkpoint and 'last_processed_paper' in checkpoint:
@@ -262,97 +262,6 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
 
 
 
-
-def scrape_references_and_citations_old(logger, db_client, start_paper, end_paper):
-    crawler = Crawler(logger, db_client)
-
-    checkpoint = load_checkpoint_references()
-    if checkpoint and 'last_processed_paper' in checkpoint:
-        # logger.log_message(f"Resuming from checkpoint: {checkpoint}")
-        start_paper = int(checkpoint['last_processed_paper'])
-    else:
-        checkpoint = {
-            'last_processed_paper': 0,
-            'last_processed_index': 0,
-            'collated_references_and_citations': {}
-        }
-
-    references_and_citations = crawler.extract_references_and_citations_old(start_paper, end_paper)
-    references_and_citations_string = json.dumps(references_and_citations)
-    logger.log_message(f"References and Citations: {references_and_citations_string}")
-
-    # Get an array of the keys in the references_and_citations dictionary
-    string_keys = list(references_and_citations.keys())
-    numeric_keys = [int(key) for key in string_keys] 
-
-    # Find the minimum and maximum numeric keys
-    min_key = min(numeric_keys)
-    max_key = max(numeric_keys)
-    print("keys: ", min_key, max_key)
-
-    def return_string_if_nonenull(input, input_name):
-        if input is None:
-            return "No " + input_name + " available"
-
-    # Iterate through the paper_ids and extract the paperId, title, and abstract
-    for num in range(min_key, max_key + 1):
-        str_num = str(num)
-        print(f"Processing paper before string conversion: {str_num}")
-        if str_num in references_and_citations:
-            print(f"Processing paper: {str_num}")
-            ss_id = references_and_citations[str_num]['ss_id']
-
-            citations = references_and_citations[str_num]['citations']
-            if isinstance(citations, dict):
-                citations = citations.get("data", [])
-
-            for citation in citations:
-                citing_paper = citation.get('citingPaper', {})
-                ss_id_citing = citing_paper.get('paperId', 'unknown_id')
-                title_citing = citing_paper.get('title', 'No Title')
-                abstract_citing = return_string_if_nonenull(citing_paper.get('abstract', 'No abstract available'), "abstract")
-                url_citing = citing_paper.get('url', None)
-
-                if ss_id_citing and title_citing:
-                    db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing)
-                    db_operations.insert_reference(db_client, ss_id_citing, ss_id)
-                else:
-                    logger.log_message(f"Skipping citing paper with missing required fields: {citing_paper}")
-            
-            
-            references = references_and_citations[str_num]['references']
-            if isinstance(references, dict):
-                references = references.get("data", [])
-
-            for reference in references:
-                cited_paper = reference.get('citedPaper', {})
-                paper_id_cited = cited_paper.get('paperId', 'unknown_id')
-                title_cited = cited_paper.get('title', 'No Title')
-                abstract_cited = return_string_if_nonenull(cited_paper.get('abstract', 'No abstract available'), "abstract")
-                url_cited = cited_paper.get('url', None)
-
-                if paper_id_cited and title_cited:
-                    db_operations.insert_paper(db_client, paper_id_cited, title_cited, abstract_cited, url_cited)
-                    db_operations.insert_reference(db_client, ss_id, paper_id_cited)
-                else:
-                    logger.log_message(f"Skipping cited paper with missing required fields: {cited_paper}")
-
-            # Update is_processed to TRUE after processing
-            try:
-                db_operations.update_is_processed(db_client, ss_id)
-            except Exception as e:
-                logger.log_message(f"An error occurred while updating is_processed for paper {str_num}, {ss_id}. Start paper: {start_paper}, end paper: {end_paper}. Error: {e}")  
-            
-            # Save checkpoint after processing each paper
-            checkpoint['last_processed_paper'] = num - min_key + 1
-            save_checkpoint_references(checkpoint)
-
-            # Add a wait time between processing each paper to avoid rate limiting
-            time.sleep(1) 
-
-    # Record the last successful trial
-    logger.log_message(f"Last successful trial: Start Paper [{start_paper}], End Paper [{end_paper}], Date-Time [{time.ctime()}]")
-    
     
 
 
@@ -378,18 +287,14 @@ def main():
     psql_password = config['PSQL_PASSWORD'] if rds_db else config['LOCAL_PSQL_PASSWORD']
     psql_host = config['PSQL_HOST'] if rds_db else config['LOCAL_PSQL_HOST']
     psql_port = config['PSQL_PORT'] if rds_db else config['LOCAL_PSQL_PORT']
-
-    # Local PostgreSQL database connection details
-    # psql_user = config['LOCAL_PSQL_USER']
-    # psql_password = config['LOCAL_PSQL_PASSWORD']
-    # psql_host = config['LOCAL_PSQL_HOST']
-    # psql_port = config['LOCAL_PSQL_PORT']
+    psql_read_host = config['PSQL_READ_HOST'] if rds_db else config['LOCAL_PSQL_HOST']
 
     db_client = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
+    db_read_client = DBClient("postgres", psql_user, psql_password, psql_read_host, psql_port)
 
     # Set up the database schema
-    db_operations.create_paper_table(db_client)
-    db_operations.create_references_table(db_client)
+    # db_operations.create_paper_table(db_client)
+    # db_operations.create_references_table(db_client)
 
     # =============================================
     # SEARCH TERMS SETTINGS
@@ -424,7 +329,7 @@ def main():
         logger.log_message(f"Processing search term: {search_term}")
         # parsed_search_term = make_url_friendly(search_term)
         # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
-        scrape_references_and_citations(logger, db_client, search_term, previous_hop)
+        scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop)
     
     logger.close_log_file()
 
