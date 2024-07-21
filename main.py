@@ -322,13 +322,11 @@ def main():
     # =============================================
     start_paper = 100
     end_paper = 102
-    previous_hop = 1
+    previous_hop = 0
 
     for i in range(start_term, end_term + 1):
         search_term = search_terms[i][0]
         logger.log_message(f"Processing search term: {search_term}")
-        # parsed_search_term = make_url_friendly(search_term)
-        # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
         scrape_references_and_citations(logger, db_client, db_read_client, search_term, previous_hop)
     
     logger.close_log_file()
