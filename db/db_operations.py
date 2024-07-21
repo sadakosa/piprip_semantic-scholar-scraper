@@ -50,14 +50,20 @@ def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_h
 
 
 def insert_reference(db_client, ss_id, reference_id):
-    # print(f"Inserting reference: {ss_id} -> {reference_id}")
     insert_query = """
     INSERT INTO "references" (ss_id, reference_id)
         VALUES (%s, %s)
         ON CONFLICT (ss_id, reference_id) DO NOTHING;
     """
-    db_client.execute(insert_query, (ss_id, reference_id))
-    db_client.commit()
+    
+    try:
+        db_client.execute(insert_query, (ss_id, reference_id))
+        db_client.commit()
+    except Exception as e:
+        db_client.rollback()
+        # Log or print the error
+        print(f"Failed to insert reference {ss_id} -> {reference_id}: {e}")
+
 
 def get_all_paper_ids(db_client):
     select_query = """
