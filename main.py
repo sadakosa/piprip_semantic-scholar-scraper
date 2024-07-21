@@ -180,7 +180,7 @@ def scrape_references_and_citations(logger, db_client, search_term, previous_hop
     while True:
         logger.log_message("retrieving papers from: " + str(start_paper))
         references_and_citations, retrieved_count, list_of_new_ids = crawler.extract_references_and_citations(
-            search_term, previous_hop, start_paper, batch_size=10
+            search_term, previous_hop, start_paper, batch_size=100
         )
 
         if not retrieved_count:
@@ -397,7 +397,7 @@ def main():
 
     search_terms = get_search_terms() # there are 460 search terms in total
     start_term = 0
-    end_term = 3
+    end_term = 6
 
     # =============================================
     # SEARCH AND SCRAPE
@@ -417,7 +417,7 @@ def main():
     # =============================================
     start_paper = 100
     end_paper = 102
-    previous_hop = 0
+    previous_hop = 1
 
     for i in range(start_term, end_term + 1):
         search_term = search_terms[i][0]
