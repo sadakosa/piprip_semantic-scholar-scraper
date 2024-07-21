@@ -180,7 +180,7 @@ def scrape_references_and_citations(logger, db_client, search_term, previous_hop
     while True:
         logger.log_message("retrieving papers from: " + str(start_paper))
         references_and_citations, retrieved_count, list_of_new_ids = crawler.extract_references_and_citations(
-            search_term, previous_hop, start_paper, batch_size=2
+            search_term, previous_hop, start_paper, batch_size=10
         )
 
         if not retrieved_count:
