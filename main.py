@@ -225,7 +225,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
             url_citing = citing_paper.get('url', None)
 
             if ss_id_citing and title_citing:
-                # print(f"Inserting citing paper: {abstract_citing}")
+                print(f"Inserting citing paper: {ss_id_citing}")
                 db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
                 db_operations.insert_reference(db_client, ss_id_citing, ss_id)
             else:
