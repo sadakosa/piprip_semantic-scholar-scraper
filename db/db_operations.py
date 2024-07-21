@@ -1,4 +1,3 @@
-import aiopg
 
 def create_paper_table(db_client):
     create_table_query = """

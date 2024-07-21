@@ -307,8 +307,8 @@ async def main():
     # =============================================
 
     search_terms = get_search_terms() # there are 460 search terms in total
-    start_term = 5
-    end_term = 6
+    start_term = 46
+    end_term = 91
 
     # =============================================
     # SEARCH AND SCRAPE
@@ -328,7 +328,7 @@ async def main():
     # =============================================
     start_paper = 100
     end_paper = 102
-    previous_hop = 1
+    previous_hop = 0
 
     for i in range(start_term, end_term + 1):
         search_term = search_terms[i][0]
