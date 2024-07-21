@@ -225,7 +225,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
             url_citing = citing_paper.get('url', None)
 
             if ss_id_citing and title_citing:
-                print(f"Inserting citing paper: {abstract_citing}")
+                # print(f"Inserting citing paper: {abstract_citing}")
                 db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
                 db_operations.insert_reference(db_client, ss_id_citing, ss_id)
             else:
@@ -237,7 +237,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
             references = references.get("data", [])
 
         for reference in references:
-            print(f"Processing reference: {reference}")
+            # print(f"Processing reference: {reference}")
             cited_paper = reference.get('citedPaper', {})
             paper_id_cited = cited_paper.get('paperId', 'unknown_id')
             title_cited = cited_paper.get('title', 'No Title')
@@ -396,7 +396,7 @@ def main():
     # =============================================
 
     search_terms = get_search_terms() # there are 460 search terms in total
-    start_term = 2
+    start_term = 0
     end_term = 3
 
     # =============================================
