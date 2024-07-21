@@ -205,9 +205,8 @@ def scrape_references_and_citations(logger, db_client, search_term, previous_hop
     remove_checkpoint_references()
 
 def insert_references_and_citations(logger, db_client, references_and_citations, search_term, previous_hop, list_of_new_ids):
-    def return_string_if_nonenull(input, input_name):
-        if input is None:
-            return "No " + input_name + " available"
+    def return_string_if_nonenull(value, key):
+        return value if value else f"No {key} available"
         
     # Iterate through the paper_ids and extract the paperId, title, and abstract
     for id in list_of_new_ids:
@@ -226,6 +225,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
             url_citing = citing_paper.get('url', None)
 
             if ss_id_citing and title_citing:
+                print(f"Inserting citing paper: {abstract_citing}")
                 db_operations.insert_paper(db_client, ss_id_citing, title_citing, abstract_citing, url_citing, search_term, previous_hop + 1)
                 db_operations.insert_reference(db_client, ss_id_citing, ss_id)
             else:
@@ -237,6 +237,7 @@ def insert_references_and_citations(logger, db_client, references_and_citations,
             references = references.get("data", [])
 
         for reference in references:
+            print(f"Processing reference: {reference}")
             cited_paper = reference.get('citedPaper', {})
             paper_id_cited = cited_paper.get('paperId', 'unknown_id')
             title_cited = cited_paper.get('title', 'No Title')
@@ -395,8 +396,8 @@ def main():
     # =============================================
 
     search_terms = get_search_terms() # there are 460 search terms in total
-    start_term = 1
-    end_term = 2
+    start_term = 2
+    end_term = 3
 
     # =============================================
     # SEARCH AND SCRAPE
@@ -420,6 +421,7 @@ def main():
 
     for i in range(start_term, end_term + 1):
         search_term = search_terms[i][0]
+        logger.log_message(f"Processing search term: {search_term}")
         # parsed_search_term = make_url_friendly(search_term)
         # scrape_references_and_citations_old(logger, db_client, start_paper, end_paper)
         scrape_references_and_citations(logger, db_client, search_term, previous_hop)
