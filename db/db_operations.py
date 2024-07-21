@@ -31,22 +31,22 @@ def create_references_table(db_client):
 
 def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
     if ss_id is None or title is None:
-        # print("Invalid paper data")
-        # print(ss_id, title, abstract, url)
         return
     
     if abstract is None:
         abstract = "No abstract available"
-    
-    # print(f"Inserting paper: {ss_id}")
     
     insert_query = """
     INSERT INTO papers (ss_id, title, abstract, url, search_term, num_hops)
         VALUES (%s, %s, %s, %s, %s, %s)
         ON CONFLICT (ss_id) DO NOTHING;
     """
-    db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
-    db_client.commit()
+    try:
+        db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
+        db_client.commit()
+    except Exception as e:
+        print(f"Failed to insert paper {ss_id}: {e}")
+
 
 def insert_reference(db_client, ss_id, reference_id):
     # print(f"Inserting reference: {ss_id} -> {reference_id}")
