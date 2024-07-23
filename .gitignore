@@ -1,6 +1,7 @@
 __pycache__/
 env/
 config/config.yaml
+config/papers_progress
 logger/logs
 checkpoint.json
 checkpoint_api.json

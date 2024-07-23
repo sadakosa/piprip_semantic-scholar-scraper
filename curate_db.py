@@ -51,7 +51,7 @@ db_operations.create_paper_curated_table(dbclient)
 # db_operations.create_references_table(db_client)
 
 # set up checkpoint
-checkpoint_file = 'checkpoint.json'
+checkpoint_file = 'checkpoint_portdb.json'
 start_term = read_checkpoint(checkpoint_file)
 
 # =============================================
