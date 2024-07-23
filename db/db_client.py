@@ -39,6 +39,7 @@ class DBClient:
             host=host,
             port=port
         )
+        self.cur = self.conn.cursor()
 
     def __del__(self):
         if self.conn:
@@ -48,9 +49,8 @@ class DBClient:
         return self.conn.cursor()
 
     def execute(self, query, params=None):
-        with self.cursor() as cur:
-            cur.execute(query, params)
-            return cur
+        self.cur.execute(query, params)
+        return self.cur
 
     def rollback(self):
         self.conn.rollback()

@@ -414,15 +414,16 @@ def main():
     
     # Set up the database schema
     # db_operations.create_paper_table(db_client)
-    # db_operations.create_references_table(db_client)
+    db_operations.create_references_table(db_client)
 
     # =============================================
     # SEARCH TERMS SETTINGS
     # =============================================
-    csv_file_path = 'search_terms.csv'
+    # csv_file_path = 'search_terms.csv'
+    csv_file_path = 'search_terms_curated.csv'
     search_terms = get_search_terms(csv_file_path) # there are 460 search terms in total
-    start_term = 8
-    end_term = 9
+    start_term = 0
+    end_term = 2
 
     # =============================================
     # SEARCH AND SCRAPE

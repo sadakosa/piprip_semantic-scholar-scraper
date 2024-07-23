@@ -182,8 +182,14 @@ def get_all_paper_ids_with_params(db_client, search_term, num_hops):
     WHERE search_term = %s AND num_hops = %s
     ORDER BY id;
     """
-    cursor = db_client.execute(select_query, (search_term, num_hops))
-    return cursor.fetchall()
+    try:
+        with db_client.cursor() as cursor:
+            cursor = db_client.execute(select_query, (search_term, num_hops))
+            return cursor.fetchall()
+    except Exception as e:
+        db_client.rollback()
+        print(f"Failed to get papers: {e}")
+    
 
 
 # only for curate_db.py to port over to curated papers table
