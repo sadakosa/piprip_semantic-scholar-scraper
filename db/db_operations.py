@@ -1,3 +1,6 @@
+# ====================================================================================================
+# CREATE TABLE Queries
+# ====================================================================================================
 
 def create_paper_table(db_client):
     create_table_query = """
@@ -29,25 +32,14 @@ def create_references_table(db_client):
     db_client.commit()
 
 
-async def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
-    if ss_id is None or title is None:
-        return
-    
-    if abstract is None:
-        abstract = "No abstract available"
-    
-    insert_query = """
-    INSERT INTO papers (ss_id, title, abstract, url, search_term, num_hops)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (ss_id) DO NOTHING;
-    """
-    try:
-        await db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
-    except Exception as e:
-        print(f"Failed to insert paper {ss_id}: {e}")
+# Add is 
+# ====================================================================================================
+# Insert Functions
+# ====================================================================================================
 
 
-# def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
+
+# async def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
 #     if ss_id is None or title is None:
 #         return
     
@@ -56,42 +48,77 @@ async def insert_paper(db_client, ss_id, title, abstract, url, search_term=None,
     
 #     insert_query = """
 #     INSERT INTO papers (ss_id, title, abstract, url, search_term, num_hops)
-#         VALUES (%s, %s, %s, %s, %s, %s)
+#         VALUES ($1, $2, $3, $4, $5, $6)
 #         ON CONFLICT (ss_id) DO NOTHING;
 #     """
 #     try:
-#         db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
-#         db_client.commit()
+#         await db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
 #     except Exception as e:
-#         db_client.rollback()
 #         print(f"Failed to insert paper {ss_id}: {e}")
 
 
-async def insert_reference(db_client, ss_id, reference_id):
-    insert_reference_query = """
-    INSERT INTO "references" (ss_id, reference_id)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING;
+def insert_paper(db_client, ss_id, title, abstract, url, search_term=None, num_hops=None):
+    if ss_id is None or title is None:
+        return
+    
+    if abstract is None:
+        abstract = "No abstract available"
+    
+    insert_query = """
+    INSERT INTO papers (ss_id, title, abstract, url, search_term, num_hops)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (ss_id) DO NOTHING;
     """
     try:
-        await db_client.execute(insert_reference_query, (ss_id, reference_id))
+        db_client.execute(insert_query, (ss_id, title, abstract, url, search_term, num_hops))
+        db_client.commit()
     except Exception as e:
-        print(f"Failed to insert reference from {ss_id} to {reference_id}: {e}")
+        db_client.rollback()
+        print(f"Failed to insert paper {ss_id}: {e}")
 
-# def insert_reference(db_client, ss_id, reference_id):
-#     insert_query = """
+
+# async def insert_reference(db_client, ss_id, reference_id):
+#     insert_reference_query = """
 #     INSERT INTO "references" (ss_id, reference_id)
-#         VALUES (%s, %s)
-#         ON CONFLICT (ss_id, reference_id) DO NOTHING;
+#         VALUES ($1, $2)
+#         ON CONFLICT DO NOTHING;
 #     """
-    
 #     try:
-#         db_client.execute(insert_query, (ss_id, reference_id))
-#         db_client.commit()
+#         await db_client.execute(insert_reference_query, (ss_id, reference_id))
 #     except Exception as e:
-#         db_client.rollback()
-#         # Log or print the error
-#         print(f"Failed to insert reference {ss_id} -> {reference_id}: {e}")
+#         print(f"Failed to insert reference from {ss_id} to {reference_id}: {e}")
+
+
+def insert_reference(db_client, ss_id, reference_id):
+    # print(f"Inserting reference: {ss_id} -> {reference_id}")
+    insert_query = """
+    INSERT INTO "references" (ss_id, reference_id)
+        VALUES (%s, %s)
+        ON CONFLICT (ss_id, reference_id) DO NOTHING;
+    """
+    db_client.execute(insert_query, (ss_id, reference_id))
+    db_client.commit()
+
+def update_is_processed(db_client, ss_id):
+    update_query = """
+    UPDATE papers
+    SET is_processed = TRUE
+    WHERE ss_id = %s;
+    """
+    db_client.execute(update_query, (ss_id,))
+    db_client.commit()
+
+
+
+
+
+
+
+
+
+# ====================================================================================================
+# Select Functions
+# ====================================================================================================
 
 
 def get_all_paper_ids(db_client):
@@ -112,21 +139,20 @@ def get_all_paper_ids_with_params(db_client, search_term, num_hops):
     cursor = db_client.execute(select_query, (search_term, num_hops))
     return cursor.fetchall()
 
-
-def checked_for_references_and_citations(db_client):
-    insert_query = """
-    ALTER TABLE papers ADD COLUMN is_processed BOOLEAN DEFAULT FALSE;
+def get_papers_for_search_term(db_client, search_term, num_papers):
+    select_query = """
+    SELECT ss_id, title, abstract, url
+    FROM papers
+    WHERE search_term = %s AND num_hops = 0
+    ORDER BY id ASC
+    LIMIT %s;
     """
-    db_client.execute(insert_query)
-    db_client.commit()
+    cursor = db_client.execute(select_query, (search_term, num_papers))
+    return cursor.fetchall()
 
-def update_is_processed(db_client, ss_id):
-    update_query = """
-    UPDATE papers
-    SET is_processed = TRUE
-    WHERE ss_id = %s;
-    """
-    db_client.execute(update_query, (ss_id,))
-    db_client.commit()
-
+# [
+#     (1, "Paper Title 1", "Abstract of Paper 1", "http://url1.com"),
+#     (2, "Paper Title 2", "Abstract of Paper 2", "http://url2.com"),
+#     (3, "Paper Title 3", "Abstract of Paper 3", "http://url3.com")
+# ]
 
