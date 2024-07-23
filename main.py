@@ -419,8 +419,8 @@ def main():
     # =============================================
     # SEARCH TERMS SETTINGS
     # =============================================
-
-    search_terms = get_search_terms() # there are 460 search terms in total
+    csv_file_path = 'search_terms.csv'
+    search_terms = get_search_terms(csv_file_path) # there are 460 search terms in total
     start_term = 8
     end_term = 9
 

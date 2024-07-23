@@ -17,8 +17,7 @@ def make_url_friendly(term):
 def undo_url_friendly(url_friendly_term):
     return unquote(url_friendly_term)
 
-def get_search_terms():
-    csv_file_path = 'search_terms.csv'
+def get_search_terms(csv_file_path):
     search_terms = []
 
     with open(csv_file_path, mode='r') as file: # open the csv file, read
