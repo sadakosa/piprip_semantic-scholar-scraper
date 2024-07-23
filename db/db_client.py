@@ -57,3 +57,6 @@ class DBClient:
 
     def commit(self):
         self.conn.commit()
+
+    def close(self):
+        self.conn.close()
