@@ -44,10 +44,10 @@ psql_port = config['PSQL_PORT'] if rds_db else config['LOCAL_PSQL_PORT']
 psql_read_host = config['PSQL_READ_HOST'] if rds_db else config['LOCAL_PSQL_HOST']
 
 dbclient = DBClient("postgres", psql_user, psql_password, psql_host, psql_port)
-# dbclient_read = DBClient("postgres", psql_user, psql_password, psql_read_host, psql_port)
+dbclient_read = DBClient("postgres", psql_user, psql_password, psql_read_host, psql_port)
 
 # Set up the database schema
-db_operations.create_paper_curated_table(dbclient)
+# db_operations.create_paper_curated_table(dbclient)
 # db_operations.create_references_table(db_client)
 
 # set up checkpoint
@@ -70,7 +70,7 @@ for idx, search_term in enumerate(search_terms[start_term:end_term]):
     logger.log_message(f"Processing search term: {search_term}")
     try:
         # Get the top 50 papers for each search term
-        papers = db_operations.get_papers_for_search_term(dbclient, search_term, num_papers)
+        papers = db_operations.get_papers_for_search_term(dbclient_read, search_term, num_papers)
         
         # Insert the papers into the database
         if papers:
