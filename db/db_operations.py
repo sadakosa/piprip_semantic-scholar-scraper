@@ -18,6 +18,24 @@ def create_paper_table(db_client):
     db_client.execute(create_table_query)
     db_client.commit()
 
+# only for curate_db.py to port over to curated papers table
+def create_paper_curated_table(db_client):
+    print("Creating papers_curated table")
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS papers_curated (
+        id SERIAL PRIMARY KEY,
+        ss_id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        abstract TEXT NOT NULL,
+        search_term TEXT,
+        num_hops INTEGER,
+        url TEXT, 
+        is_processed BOOLEAN DEFAULT FALSE
+    );
+    """
+    db_client.execute(create_table_query)
+    db_client.commit()
+
 def create_references_table(db_client):
     create_table_query = """
     CREATE TABLE IF NOT EXISTS "references" (
@@ -108,6 +126,34 @@ def update_is_processed(db_client, ss_id):
     db_client.execute(update_query, (ss_id,))
     db_client.commit()
 
+# only for curate_db.py to port over to curated papers table
+def batch_insert_papers(db_client, papers):
+    # if ss_id is None or title is None:
+    #     return
+    
+    # if abstract is None:
+    #     abstract = "No abstract available"
+    
+    insert_query = """
+    INSERT INTO papers_curated (ss_id, title, abstract, url, search_term, num_hops)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (ss_id) DO NOTHING;
+    """
+    try:
+        with db_client.cursor() as cursor:
+            cursor.executemany(insert_query, papers)
+        db_client.commit()
+    except Exception as e:
+        db_client.rollback()
+        print(f"Failed to insert papers: {e}, search term: {papers[0][4]}")
+
+
+# papers = [
+#     ('ss_id_1', 'Cleaned Title 1', 'Cleaned Abstract 1', True),
+#     ('ss_id_2', 'Cleaned Title 2', 'Cleaned Abstract 2', True),
+#     ('ss_id_3', 'Cleaned Title 3', 'Cleaned Abstract 3', True),
+#     # More records
+# ]
 
 
 
@@ -139,16 +185,23 @@ def get_all_paper_ids_with_params(db_client, search_term, num_hops):
     cursor = db_client.execute(select_query, (search_term, num_hops))
     return cursor.fetchall()
 
+
+# only for curate_db.py to port over to curated papers table
 def get_papers_for_search_term(db_client, search_term, num_papers):
     select_query = """
-    SELECT ss_id, title, abstract, url
+    SELECT ss_id, title, abstract, url, search_term, num_hops
     FROM papers
     WHERE search_term = %s AND num_hops = 0
     ORDER BY id ASC
     LIMIT %s;
     """
-    cursor = db_client.execute(select_query, (search_term, num_papers))
-    return cursor.fetchall()
+    try:
+        with db_client.cursor() as cursor:
+            cursor.execute(select_query, (search_term, num_papers))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"Failed to get papers for search term {search_term}: {e}")
+        return []
 
 # [
 #     (1, "Paper Title 1", "Abstract of Paper 1", "http://url1.com"),
