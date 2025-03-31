@@ -2,6 +2,8 @@ __pycache__/
 env/
 venv/
 config/config.yaml
+config/papers_progress
 logger/logs
 checkpoint.json
 checkpoint_api.json
+checkpoint_portdb.json

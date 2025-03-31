@@ -97,7 +97,7 @@ GROUP BY search_term;
 ```
 
 On Postgres
---> On command line: psql -h database-2.c5esewkagze1.ap-southeast-2.rds.amazonaws.com -p 5432 -d postgres -U postgres
+--> On command line: psql -h database-1.c5esewkagze1.ap-southeast-2.rds.amazonaws.com -p 5432 -d postgres -U postgres
 --> In python code: connection = psycopg2.connect(database="dbname", user="postgres", password="postgres", host="hostname", port=5432), host is database-2.c5esewkagze1.ap-southeast-2.rds.amazonaws.com
 
 
@@ -124,6 +124,45 @@ Connecting to ec2 ssh
 
 ```
 
+## To port to curated papers table
+```
+CREATE TABLE IF NOT EXISTS papers (
+        id SERIAL PRIMARY KEY,
+        ss_id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        abstract TEXT NOT NULL,
+        search_term TEXT,
+        num_hops INTEGER,
+        url TEXT, 
+        is_processed BOOLEAN DEFAULT FALSE
+    );
+CREATE TABLE IF NOT EXISTS papers_curated (
+        id SERIAL PRIMARY KEY,
+        ss_id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        abstract TEXT NOT NULL,
+        search_term TEXT,
+        num_hops INTEGER,
+        url TEXT, 
+        is_processed BOOLEAN DEFAULT FALSE
+    );
+CREATE TABLE IF NOT EXISTS "references" (
+        ss_id TEXT NOT NULL,
+        reference_id TEXT NOT NULL,
+        constraint fk_ss_id foreign key (ss_id) references papers(ss_id),
+        constraint fk_reference_id foreign key (reference_id) references papers(ss_id),
+        PRIMARY KEY (ss_id, reference_id)
+    );
+
+# add is_cleaned BOOLEAN DEFAULT FALSE
+# change the name of the papers table to papers_uncurated
+# change the name of the papers_curated table to papers
+
+# change the name of the "references" table to references_uncurated
+# create new references table that is connected to papers_curated table
+
+
+```
 
 ## Old
 ```
